@@ -1,0 +1,39 @@
+#!/bin/bash
+# Run Trivy security vulnerability scan using Docker - no local installation needed
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}=== Running Security Vulnerability Scan ===${NC}"
+
+# Check if image name was provided, otherwise build it
+if [ -z "$1" ]; then
+    TAG="security-scan-$(date +%s)"
+    IMAGE_NAME="ac-ai-claudecode-local:${TAG}"
+    
+    echo -e "${YELLOW}Building Docker image for scanning...${NC}"
+    docker build -t ${IMAGE_NAME} --build-arg TAGGED_VERSION=${TAG} .
+else
+    IMAGE_NAME="$1"
+    echo -e "${YELLOW}Scanning existing image: ${IMAGE_NAME}${NC}"
+fi
+
+echo -e "\n${YELLOW}Running Trivy vulnerability scanner...${NC}"
+
+# Note: In Docker-in-Docker environments, mounting files can be problematic
+# So we'll run without the ignore file for now
+echo -e "${YELLOW}Note: Running without .trivyignore.yml in Docker-in-Docker environment${NC}"
+
+# Run Trivy without ignore file
+docker run --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    aquasec/trivy:latest image \
+    ${IMAGE_NAME}
+
+echo -e "\n${GREEN}=== Security scan complete ===${NC}"
+echo "Image scanned: ${IMAGE_NAME}"

@@ -1,0 +1,17 @@
+vulnerabilities:
+  # Go binary vulnerabilities - cannot be patched, need upstream fixes
+  # terraform binary - HashiCorp go-getter arbitrary file read vulnerability
+  - id: CVE-2025-8959
+    statement: Cannot patch compiled Go binary, using latest available version
+  # terraform binary - database/sql Postgres race condition
+  - id: CVE-2025-47907
+    statement: Cannot patch compiled Go binary, using latest available version
+  # terraform-docs binary - crypto/x509 ExtKeyUsageAny policy validation issue  
+  - id: CVE-2025-22874
+    statement: Cannot patch compiled Go binary, using latest available version
+  # trivy binary - database/sql Postgres race condition
+  # Note: Same CVE-2025-47907 affects multiple binaries
+
+misconfigurations:
+  # Base image so root user is ok
+  - id: AVD-DS-0002

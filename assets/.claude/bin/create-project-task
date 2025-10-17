@@ -1,0 +1,82 @@
+#!/bin/bash
+# Create a new task within a specific project directory
+
+# Define base directories
+PLAYGROUND_DIR="${PLAYGROUND_DIR:-/workspace/project/ai-playground}"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+# Check for required arguments
+if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Error: Project name and task name are required"
+    echo "Usage: create-project-task <project-name> <task-name>"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+TASK_NAME="$2"
+PROJECT_DIR="$PROJECTS_DIR/$PROJECT_NAME"
+
+# Check if project exists
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Error: Project '$PROJECT_NAME' does not exist"
+    echo "Use '/create-project $PROJECT_NAME' to create it first"
+    exit 1
+fi
+
+# Set task directory to project-specific location
+TASK_DIR="$PROJECT_DIR/tasks"
+PLANNING_DIR="$TASK_DIR/planning"
+TASK_FILE="$PLANNING_DIR/${TASK_NAME}.md"
+
+# Create directories if they don't exist
+mkdir -p "$PLANNING_DIR"
+mkdir -p "$TASK_DIR/approved"
+mkdir -p "$TASK_DIR/in-progress"
+mkdir -p "$TASK_DIR/completed"
+
+# Check if task already exists in any status directory
+for status in planning approved in-progress completed; do
+    if [ -f "$TASK_DIR/$status/${TASK_NAME}.md" ]; then
+        echo "Error: Task '$TASK_NAME' already exists in $status directory"
+        exit 1
+    fi
+done
+
+# Create task file
+cat > "$TASK_FILE" << EOF
+# Task: ${TASK_NAME}
+Status: planning
+Created: $(date '+%Y-%m-%d %H:%M:%S')
+Updated: $(date '+%Y-%m-%d %H:%M:%S')
+PRP-Template: none
+Project: ${PROJECT_NAME}
+
+## Project Intention
+[Clear description of what needs to be done]
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+
+## Implementation Approach
+[Describe the approach or reference a PRP template]
+
+## Technical Details
+[Any specific technical requirements]
+
+## Notes
+[Any additional context]
+EOF
+
+echo "✅ Task created successfully in project '$PROJECT_NAME'"
+echo ""
+echo "Task file: $TASK_FILE"
+echo ""
+echo "Next steps:"
+echo "1. Edit the task file to add details and acceptance criteria"
+echo "2. Reference appropriate PRP templates from /workspace/project/.claude/prp-templates/"
+echo "3. When ready, move the task file to the approved directory to begin work"
+
+# Exit codes:
+# 0 - Success
+# 1 - Error (missing args, project not found, task already exists)

@@ -1,0 +1,119 @@
+#!/bin/bash
+
+# Create a new project PRP structure
+
+set -e
+
+# Check if project name is provided
+if [ -z "$1" ]; then
+    echo "Error: Project name is required"
+    echo "Usage: create-project <project-name>"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+PROJECT_DIR="/workspace/project/ai-playground/projects/$PROJECT_NAME"
+
+# Check if project already exists
+if [ -d "$PROJECT_DIR" ]; then
+    echo "Error: Project '$PROJECT_NAME' already exists"
+    exit 1
+fi
+
+# Create project directory
+mkdir -p "$PROJECT_DIR"
+
+# Create task subdirectories for project-specific tasks
+mkdir -p "$PROJECT_DIR/tasks/planning"
+mkdir -p "$PROJECT_DIR/tasks/approved"
+mkdir -p "$PROJECT_DIR/tasks/in-progress"
+mkdir -p "$PROJECT_DIR/tasks/completed"
+
+# Create plan.md
+cat > "$PROJECT_DIR/plan.md" << EOF
+# Project: ${PROJECT_NAME}
+
+## Overview
+[Project description and goals]
+
+## File Map
+### New Files 🆕
+- \`path/to/file.ext\` - [Purpose]
+
+### Modified Files ✏️
+- \`path/to/existing.ext\` - [Changes planned]
+
+### Deleted Files 🗑️
+- \`path/to/remove.ext\` - [Reason]
+
+## Implementation Steps
+1. [Step 1 with details]
+2. [Step 2 with details]
+
+## Success Criteria
+- [ ] Criteria 1
+- [ ] Criteria 2
+
+## Risk Assessment
+- [Potential issue 1]
+- [Potential issue 2]
+
+## Dependencies
+- [External library 1]
+- [API dependency 1]
+EOF
+
+# Create progress.md
+cat > "$PROJECT_DIR/progress.md" << EOF
+# Progress Log
+
+## $(date '+%Y-%m-%d %H:%M:%S')
+- 🆕 Project created
+- ⏳ Planning phase
+EOF
+
+# Create status.json
+cat > "$PROJECT_DIR/status.json" << EOF
+{
+    "project": "${PROJECT_NAME}",
+    "created": "$(date '+%Y-%m-%d %H:%M:%S')",
+    "status": "planning",
+    "completion_percent": 0,
+    "last_updated": "$(date '+%Y-%m-%d %H:%M:%S')",
+    "summary": "Project description pending"
+}
+EOF
+
+# Create notes.md
+cat > "$PROJECT_DIR/notes.md" << EOF
+# Project Notes
+
+## Design Decisions
+- [Record important decisions here]
+
+## Issues Encountered
+- [Document any issues and their solutions]
+
+## References
+- [Links to documentation, tickets, etc.]
+EOF
+
+echo "Project created successfully: $PROJECT_DIR"
+echo ""
+echo "Files created:"
+echo "  - plan.md (Project PRP)"
+echo "  - progress.md (Progress tracking)"
+echo "  - status.json (Project metadata)"
+echo "  - notes.md (Additional notes)"
+echo ""
+echo "Directories created:"
+echo "  - tasks/planning/ (Tasks being planned)"
+echo "  - tasks/approved/ (Tasks ready to begin)"
+echo "  - tasks/in-progress/ (Tasks being worked on)"
+echo "  - tasks/completed/ (Finished tasks)"
+echo ""
+echo "Next steps:"
+echo "1. Edit plan.md to define the project requirements"
+echo "2. Present the plan to the user for approval"
+echo "3. Update status to 'active' when approved"
+echo "4. Create project tasks with: create-project-task $PROJECT_NAME <task-name>"

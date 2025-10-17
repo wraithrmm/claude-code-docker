@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  claudecode:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TAGGED_VERSION: localdev
+    image: ac-ai-claudecode-local:localdev
+    container_name: ac-claudecode
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/workspace/project
+      - ~/.claude.json:/opt/user-claude/.claude.json
+      - ~/.claude:/opt/user-claude/.claude
+      # Optional: Mount git config for identity (name/email) in commits
+      # Note: This does NOT provide git authentication - no push/pull/clone of private repos
+      # - ~/.gitconfig:/opt/user-gitconfig/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /Users/claude-code:/Users/claude-code
+    environment:
+      - HOST_PWD=${HOST_PWD:-$(pwd)}
+      - HOST_USER=${HOST_USER:-$(whoami)}
+    command: /bin/bash

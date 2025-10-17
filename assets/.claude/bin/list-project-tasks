@@ -1,0 +1,99 @@
+#!/bin/bash
+# List all tasks within a specific project, grouped by status
+
+# Define base directories (configurable for testing)
+PLAYGROUND_DIR="${PLAYGROUND_DIR:-/workspace/project/ai-playground}"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+# Check for required arguments
+if [ -z "$1" ]; then
+    echo "Error: Project name required"
+    echo "Usage: list-project-tasks <project-name>"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+PROJECT_DIR="$PROJECTS_DIR/$PROJECT_NAME"
+
+# Check if ai-playground exists
+if [ ! -d "$PLAYGROUND_DIR" ]; then
+    echo "Error: AI playground not initialized"
+    echo "Run '/init-playground' first"
+    exit 1
+fi
+
+# Check if project exists
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Error: Project '$PROJECT_NAME' does not exist"
+    echo "Use '/list-projects' to see available projects"
+    exit 1
+fi
+
+# Set task directory to project-specific location
+TASK_DIR="$PROJECT_DIR/tasks"
+
+# Create task directories if they don't exist
+mkdir -p "$TASK_DIR/planning"
+mkdir -p "$TASK_DIR/approved"
+mkdir -p "$TASK_DIR/in-progress"
+mkdir -p "$TASK_DIR/completed"
+
+# Function to display tasks in a directory
+display_tasks() {
+    local status="$1"
+    local dir="$TASK_DIR/$status"
+    local count=0
+    
+    # Count .md files if directory exists
+    if [ -d "$dir" ]; then
+        count=$(find "$dir" -name "*.md" -type f 2>/dev/null | wc -l)
+    fi
+    
+    echo "## $status ($count tasks)"
+    echo ""
+    
+    if [ $count -eq 0 ]; then
+        echo "  No tasks"
+    else
+        # Process each .md file
+        for task_file in "$dir"/*.md; do
+            if [ -f "$task_file" ]; then
+                local task_name=$(basename "$task_file" .md)
+                local created=$(grep "^Created:" "$task_file" 2>/dev/null | cut -d' ' -f2-)
+                created="${created:-Unknown}"
+                local template=$(grep "^PRP-Template:" "$task_file" 2>/dev/null | cut -d' ' -f2-)
+                template="${template:-none}"
+                
+                echo "  - $task_name"
+                echo "    Created: $created"
+                if [ "$template" != "none" ] && [ "$template" != "" ]; then
+                    echo "    Template: $template"
+                fi
+            fi
+        done
+    fi
+    echo ""
+}
+
+echo "# Task List for Project: $PROJECT_NAME"
+echo "========================================"
+echo ""
+
+# Display tasks for each status
+display_tasks "planning"
+display_tasks "approved"
+display_tasks "in-progress"
+display_tasks "completed"
+
+# Summary
+total_tasks=0
+if [ -d "$TASK_DIR" ]; then
+    total_tasks=$(find "$TASK_DIR" -name "*.md" -type f 2>/dev/null | wc -l || echo 0)
+fi
+
+echo "## Summary"
+echo "Total tasks: $total_tasks"
+echo ""
+
+# Exit successfully
+exit 0

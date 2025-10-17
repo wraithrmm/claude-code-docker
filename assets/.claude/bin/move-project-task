@@ -1,0 +1,105 @@
+#!/bin/bash
+# Move a task between status directories within a specific project
+
+set -e
+
+# Define base directories (configurable for testing)
+PLAYGROUND_DIR="${PLAYGROUND_DIR:-/workspace/project/ai-playground}"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+# Check if all required arguments are provided
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+    echo "Error: Project name, task name, and target status are required"
+    echo "Usage: move-project-task <project-name> <task-name> <status>"
+    echo "Valid statuses: planning, approved, in-progress, completed"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+TASK_NAME="$2"
+TARGET_STATUS="$3"
+PROJECT_DIR="$PROJECTS_DIR/$PROJECT_NAME"
+TASK_DIR="$PROJECT_DIR/tasks"
+
+# Check if ai-playground exists
+if [ ! -d "$PLAYGROUND_DIR" ]; then
+    echo "Error: AI playground not initialized"
+    echo "Run '/init-playground' first"
+    exit 1
+fi
+
+# Check if project exists
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Error: Project '$PROJECT_NAME' does not exist"
+    echo "Use '/list-projects' to see available projects"
+    exit 1
+fi
+
+# Validate target status
+case "$TARGET_STATUS" in
+    planning|approved|in-progress|completed)
+        ;;
+    *)
+        echo "Error: Invalid status '$TARGET_STATUS'"
+        echo "Valid statuses: planning, approved, in-progress, completed"
+        exit 1
+        ;;
+esac
+
+# Find current location of task
+CURRENT_FILE=""
+CURRENT_STATUS=""
+
+for status in planning approved in-progress completed; do
+    if [ -f "$TASK_DIR/$status/${TASK_NAME}.md" ]; then
+        CURRENT_FILE="$TASK_DIR/$status/${TASK_NAME}.md"
+        CURRENT_STATUS="$status"
+        break
+    fi
+done
+
+if [ -z "$CURRENT_FILE" ]; then
+    echo "Error: Task '$TASK_NAME' not found in project '$PROJECT_NAME'"
+    echo "Use '/list-project-tasks $PROJECT_NAME' to see available tasks"
+    exit 1
+fi
+
+if [ "$CURRENT_STATUS" = "$TARGET_STATUS" ]; then
+    echo "Task '$TASK_NAME' is already in $TARGET_STATUS"
+    exit 0
+fi
+
+# Create target directory if it doesn't exist
+mkdir -p "$TASK_DIR/$TARGET_STATUS"
+
+# Update the task file
+TARGET_FILE="$TASK_DIR/$TARGET_STATUS/${TASK_NAME}.md"
+
+# Copy file to new location with updated status and timestamp
+cp "$CURRENT_FILE" "$TARGET_FILE"
+
+# Update Status line
+sed -i "s/^Status: .*/Status: $TARGET_STATUS/" "$TARGET_FILE"
+
+# Update Updated timestamp
+sed -i "s/^Updated: .*/Updated: $(date '+%Y-%m-%d %H:%M:%S')/" "$TARGET_FILE"
+
+# Remove old file
+rm "$CURRENT_FILE"
+
+echo "Task '$TASK_NAME' moved from $CURRENT_STATUS to $TARGET_STATUS in project '$PROJECT_NAME'"
+
+# Provide next step hints
+case "$TARGET_STATUS" in
+    approved)
+        echo "Task is now approved and ready to be worked on"
+        echo "Use 'move-project-task $PROJECT_NAME $TASK_NAME in-progress' when you start working on it"
+        ;;
+    in-progress)
+        echo "Task is now in progress"
+        echo "Use 'move-project-task $PROJECT_NAME $TASK_NAME completed' when finished"
+        ;;
+    completed)
+        echo "Task completed! 🎉"
+        ;;
+esac

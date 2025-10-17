@@ -1,0 +1,198 @@
+version: 2.1
+
+parameters:
+  docker_repo_url:
+    type: string
+    default: "571637302133.dkr.ecr.eu-west-1.amazonaws.com/ac-ai-claudecode"
+
+orbs:
+  aws-cli: circleci/aws-cli@4.1
+  ac-build-tools: aurora-commerce/ac-build-tools@1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - run:
+          name: Install BATS
+          command: |
+            sudo npm install -g bats
+      - run:
+          name: Run All Tests
+          command: |
+            # Make run-tests.sh executable
+            chmod +x run-tests.sh
+            
+            # Run all tests
+            ./run-tests.sh
+
+  build:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - aws-cli/setup
+      - run:
+          name: Login to ECR
+          command: |
+            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin << pipeline.parameters.docker_repo_url >>
+      - run:
+          name: Build Docker Image
+          command: |
+            # Create a simple tag from branch and commit
+            TAG=$(echo "<< pipeline.git.branch >>-<< pipeline.git.revision >>" | tr / -)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+            
+            echo "Building image: ${IMAGE_NAME}"
+            docker build -t ${IMAGE_NAME} --build-arg TAGGED_VERSION=${TAG} .
+            
+            echo "Built image successfully"
+            docker images | grep << pipeline.parameters.docker_repo_url >>
+      - run:
+          name: Save Docker Image
+          command: |
+            TAG=$(echo "<< pipeline.git.branch >>-<< pipeline.git.revision >>" | tr / -)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+            
+            echo "Saving image to workspace"
+            mkdir -p /tmp/workspace
+            docker save -o /tmp/workspace/image.tar ${IMAGE_NAME}
+            echo "${TAG}" > /tmp/workspace/tag.txt
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - image.tar
+            - tag.txt
+
+  scan:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - aws-cli/setup
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Login to ECR
+          command: |
+            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin << pipeline.parameters.docker_repo_url >>
+      - run:
+          name: Load Docker Image
+          command: |
+            echo "Loading image from workspace"
+            docker load -i /tmp/workspace/image.tar
+      - run:
+          name: Prepare scan parameters
+          command: |
+            TAG=$(cat /tmp/workspace/tag.txt)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+            echo "export IMAGE_NAME=${IMAGE_NAME}" >> $BASH_ENV
+      - ac-build-tools/trivy_scan:
+          target_repos: "${IMAGE_NAME}"
+          target_repos_includes_tag: true
+          build_tag: ""
+          ignore_file: .trivyignore.yml
+          skip_dirs: ""
+      - ac-build-tools/hadolint_scan:
+          platform: "amd64"
+          docker_file: Dockerfile
+
+  publish:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - aws-cli/setup
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Login to ECR
+          command: |
+            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin << pipeline.parameters.docker_repo_url >>
+      - run:
+          name: Load Docker Image
+          command: |
+            echo "Loading image from workspace"
+            docker load -i /tmp/workspace/image.tar
+      - run:
+          name: Push Docker Image
+          command: |
+            TAG=$(cat /tmp/workspace/tag.txt)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+            
+            echo "Pushing image: ${IMAGE_NAME}"
+            docker push ${IMAGE_NAME}
+            
+            # Also tag as 'latest' if on master branch
+            if [[ "<< pipeline.git.branch >>" == "master" ]]; then
+              LATEST_IMAGE="<< pipeline.parameters.docker_repo_url >>:latest"
+              docker tag ${IMAGE_NAME} ${LATEST_IMAGE}
+              docker push ${LATEST_IMAGE}
+              echo "Also pushed as: ${LATEST_IMAGE}"
+            fi
+
+workflows:
+  build_and_push:
+    jobs:
+      - test:
+          context:
+            - ac-ai-global
+      - build:
+          context:
+            - ac-ai-global
+      - scan:
+          requires:
+            - build
+          context:
+            - ac-ai-global
+
+      # ok-to-publish job acts as a dependency aggregator
+      - ac-build-tools/ok_to_publish:
+          name: ok-to-publish
+          requires:
+            - test
+            - scan
+
+      - publish:
+          requires:
+            - ok-to-publish
+          context:
+            - ac-ai-global
+
+      # Publish documentation to Confluence on master
+      - ac-build-tools/confluence_publish:
+          name: confluence-publish
+          documentation_files: "README.md"
+          target_dir: "./"
+          pre-steps:
+            - checkout
+          requires:
+            - ok-to-publish
+          context:
+            - ac-confluence-publishing
+          filters:
+            branches:
+              only: master
+
+      # Validate documentation for Confluence on releases
+      - ac-build-tools/confluence_publish:
+          name: dry-run-confluence-publish
+          documentation_files: "README.md"
+          target_dir: "./"
+          dry_run: true
+          pre-steps:
+            - checkout
+          requires:
+            - ok-to-publish
+          context:
+            - ac-confluence-publishing
+          filters:
+            branches:
+              ignore: master

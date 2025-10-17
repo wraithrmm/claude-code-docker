@@ -1,0 +1,53 @@
+#!/bin/bash
+# Initialize ai-playground directory and show project/task status
+
+PLAYGROUND_DIR="/workspace/project/ai-playground"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+TASKS_DIR="$PLAYGROUND_DIR/tasks"
+
+# Output greeting
+echo "Following CLAUDE.md process"
+
+# Check if ai-playground exists
+if [ ! -d "$PLAYGROUND_DIR" ]; then
+    echo "Creating ai-playground directory structure..."
+    mkdir -p "$PROJECTS_DIR"
+    mkdir -p "$TASKS_DIR"/{planning,approved,in-progress,completed}
+    echo "✅ ai-playground directory structure created"
+else
+    echo "✅ ai-playground directory exists"
+    # Ensure subdirectories exist
+    mkdir -p "$PROJECTS_DIR"
+    mkdir -p "$TASKS_DIR"/{planning,approved,in-progress,completed}
+fi
+
+# List existing projects with numbers
+project_count=0
+if [ -d "$PROJECTS_DIR" ]; then
+    # Find all project directories and store in array for consistent numbering
+    readarray -t projects < <(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+    project_count=${#projects[@]}
+    
+    if [ $project_count -gt 0 ]; then
+        echo ""
+        echo "Existing projects:"
+        for i in "${!projects[@]}"; do
+            project_name=$(basename "${projects[$i]}")
+            echo "$((i+1)). 📁 $project_name"
+        done
+    fi
+fi
+
+# Count tasks
+task_count=0
+if [ -d "$TASKS_DIR" ]; then
+    task_count=$(find "$TASKS_DIR" -name "*.md" -type f 2>/dev/null | wc -l)
+fi
+
+# Display ready message
+echo ""
+echo "Ready for new work:"
+echo "- Found $project_count project(s)"
+echo "- Found $task_count task(s)"
+echo ""
+echo "Use /list-projects to see projects or /list-tasks to see tasks"

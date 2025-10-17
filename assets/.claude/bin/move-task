@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# Move a task between status directories
+
+set -e
+
+# Check if both arguments are provided
+if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Error: Task name and target status are required"
+    echo "Usage: move-task <task-name> <status>"
+    echo "Valid statuses: planning, approved, in-progress, completed"
+    exit 1
+fi
+
+TASK_NAME="$1"
+TARGET_STATUS="$2"
+TASK_DIR="/workspace/project/ai-playground/tasks"
+
+# Validate target status
+case "$TARGET_STATUS" in
+    planning|approved|in-progress|completed)
+        ;;
+    *)
+        echo "Error: Invalid status '$TARGET_STATUS'"
+        echo "Valid statuses: planning, approved, in-progress, completed"
+        exit 1
+        ;;
+esac
+
+# Find current location of task
+CURRENT_FILE=""
+CURRENT_STATUS=""
+
+for status in planning approved in-progress completed; do
+    if [ -f "$TASK_DIR/$status/${TASK_NAME}.md" ]; then
+        CURRENT_FILE="$TASK_DIR/$status/${TASK_NAME}.md"
+        CURRENT_STATUS="$status"
+        break
+    fi
+done
+
+if [ -z "$CURRENT_FILE" ]; then
+    echo "Error: Task '$TASK_NAME' not found"
+    exit 1
+fi
+
+if [ "$CURRENT_STATUS" = "$TARGET_STATUS" ]; then
+    echo "Task '$TASK_NAME' is already in $TARGET_STATUS"
+    exit 0
+fi
+
+# Create target directory if it doesn't exist
+mkdir -p "$TASK_DIR/$TARGET_STATUS"
+
+# Update the task file
+TARGET_FILE="$TASK_DIR/$TARGET_STATUS/${TASK_NAME}.md"
+
+# Copy file to new location with updated status and timestamp
+cp "$CURRENT_FILE" "$TARGET_FILE"
+
+# Update Status line
+sed -i "s/^Status: .*/Status: $TARGET_STATUS/" "$TARGET_FILE"
+
+# Update Updated timestamp
+sed -i "s/^Updated: .*/Updated: $(date '+%Y-%m-%d %H:%M:%S')/" "$TARGET_FILE"
+
+# Remove old file
+rm "$CURRENT_FILE"
+
+echo "Task '$TASK_NAME' moved from $CURRENT_STATUS to $TARGET_STATUS"
+
+# Provide next step hints
+case "$TARGET_STATUS" in
+    approved)
+        echo "Task is now approved and ready to be worked on"
+        echo "Use 'move-task $TASK_NAME in-progress' when you start working on it"
+        ;;
+    in-progress)
+        echo "Task is now in progress"
+        echo "Use 'move-task $TASK_NAME completed' when finished"
+        ;;
+    completed)
+        echo "Task completed! 🎉"
+        ;;
+esac

@@ -1,0 +1,32 @@
+#!/bin/bash
+# Run Hadolint Dockerfile linter using Docker - no local installation needed
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}=== Running Dockerfile Linter ===${NC}"
+
+# Check if Dockerfile path was provided
+DOCKERFILE="${1:-Dockerfile}"
+
+if [ ! -f "$DOCKERFILE" ]; then
+    echo -e "${RED}Error: Dockerfile not found at: $DOCKERFILE${NC}"
+    exit 1
+fi
+
+echo -e "${YELLOW}Linting: $DOCKERFILE${NC}\n"
+
+# Run Hadolint in Docker
+docker run --rm -i hadolint/hadolint < "$DOCKERFILE" && {
+    echo -e "\n${GREEN}✓ Dockerfile passed all linting checks${NC}"
+} || {
+    EXIT_CODE=$?
+    echo -e "\n${YELLOW}⚠ Hadolint found issues in Dockerfile${NC}"
+    echo -e "${YELLOW}Exit code: $EXIT_CODE${NC}"
+    exit $EXIT_CODE
+}
