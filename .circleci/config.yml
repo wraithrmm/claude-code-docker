@@ -3,11 +3,7 @@ version: 2.1
 parameters:
   docker_repo_url:
     type: string
-    default: "571637302133.dkr.ecr.eu-west-1.amazonaws.com/ac-ai-claudecode"
-
-orbs:
-  aws-cli: circleci/aws-cli@4.1
-  ac-build-tools: aurora-commerce/ac-build-tools@1
+    default: "wraithrmm/claude-code-docker"
 
 jobs:
   test:
@@ -35,11 +31,10 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-      - aws-cli/setup
       - run:
-          name: Login to ECR
+          name: Login to Docker Hub
           command: |
-            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin << pipeline.parameters.docker_repo_url >>
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
       - run:
           name: Build Docker Image
           command: |
@@ -75,33 +70,70 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-      - aws-cli/setup
       - attach_workspace:
           at: /tmp/workspace
-      - run:
-          name: Login to ECR
-          command: |
-            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin << pipeline.parameters.docker_repo_url >>
       - run:
           name: Load Docker Image
           command: |
             echo "Loading image from workspace"
             docker load -i /tmp/workspace/image.tar
       - run:
-          name: Prepare scan parameters
+          name: Install Trivy
+          command: |
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ~/bin/
+      - run:
+          name: Scan the Docker image for vulnerabilities
           command: |
             TAG=$(cat /tmp/workspace/tag.txt)
             IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
-            echo "export IMAGE_NAME=${IMAGE_NAME}" >> $BASH_ENV
-      - ac-build-tools/trivy_scan:
-          target_repos: "${IMAGE_NAME}"
-          target_repos_includes_tag: true
-          build_tag: ""
-          ignore_file: .trivyignore.yml
-          skip_dirs: ""
-      - ac-build-tools/hadolint_scan:
-          platform: "amd64"
-          docker_file: Dockerfile
+            
+            extra_options=""
+            
+            # Check for trivyignore file
+            if [[ -f .trivyignore.yml ]]; then
+              extra_options="${extra_options} --ignorefile .trivyignore.yml"
+            fi
+            
+            # Run Trivy image scan
+            ~/bin/trivy image \
+              --exit-code 1 \
+              --ignore-unfixed \
+              --scanners vuln,misconfig \
+              --severity HIGH,CRITICAL \
+              ${extra_options} \
+              --show-suppressed \
+              ${IMAGE_NAME}
+            
+            # Run Trivy config scan on current directory
+            ~/bin/trivy config \
+              --exit-code 1 \
+              --severity HIGH,CRITICAL \
+              ${extra_options} \
+              ./
+      - run:
+          name: Install Hadolint
+          command: |
+            # Detect platform and download appropriate Hadolint binary
+            image_name="hadolint-Linux-x86_64"
+            
+            curl -sLo ~/bin/hadolint $(curl -s https://api.github.com/repos/hadolint/hadolint/releases/latest | jq -r ".assets[] | select(.name==\"${image_name}\") | .browser_download_url")
+            chmod +x ~/bin/hadolint
+      - run:
+          name: Lint the Docker image
+          command: |
+            ~/bin/hadolint \
+              --failure-threshold error \
+              Dockerfile
+
+  ok-to-publish:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - run:
+          name: All dependencies passed
+          command: |
+            echo "All required tests and checks have passed successfully."
+            echo "Ready to proceed with publishing."
 
   publish:
     docker:
@@ -109,13 +141,12 @@ jobs:
     steps:
       - setup_remote_docker:
           docker_layer_caching: true
-      - aws-cli/setup
       - attach_workspace:
           at: /tmp/workspace
       - run:
-          name: Login to ECR
+          name: Login to Docker Hub
           command: |
-            aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin << pipeline.parameters.docker_repo_url >>
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
       - run:
           name: Load Docker Image
           command: |
@@ -131,7 +162,7 @@ jobs:
             docker push ${IMAGE_NAME}
             
             # Also tag as 'latest' if on master branch
-            if [[ "<< pipeline.git.branch >>" == "master" ]]; then
+            if [[ "<< pipeline.git.branch >>" == "master" || "<< pipeline.git.branch >>" == "main" ]]; then
               LATEST_IMAGE="<< pipeline.parameters.docker_repo_url >>:latest"
               docker tag ${IMAGE_NAME} ${LATEST_IMAGE}
               docker push ${LATEST_IMAGE}
@@ -143,56 +174,26 @@ workflows:
     jobs:
       - test:
           context:
-            - ac-ai-global
+            - dockerhub-credentials
       - build:
           context:
-            - ac-ai-global
+            - dockerhub-credentials
       - scan:
           requires:
             - build
           context:
-            - ac-ai-global
-
-      # ok-to-publish job acts as a dependency aggregator
-      - ac-build-tools/ok_to_publish:
-          name: ok-to-publish
+            - dockerhub-credentials
+      - ok-to-publish:
           requires:
             - test
             - scan
-
       - publish:
           requires:
             - ok-to-publish
           context:
-            - ac-ai-global
-
-      # Publish documentation to Confluence on master
-      - ac-build-tools/confluence_publish:
-          name: confluence-publish
-          documentation_files: "README.md"
-          target_dir: "./"
-          pre-steps:
-            - checkout
-          requires:
-            - ok-to-publish
-          context:
-            - ac-confluence-publishing
+            - dockerhub-credentials
           filters:
             branches:
-              only: master
-
-      # Validate documentation for Confluence on releases
-      - ac-build-tools/confluence_publish:
-          name: dry-run-confluence-publish
-          documentation_files: "README.md"
-          target_dir: "./"
-          dry_run: true
-          pre-steps:
-            - checkout
-          requires:
-            - ok-to-publish
-          context:
-            - ac-confluence-publishing
-          filters:
-            branches:
-              ignore: master
+              only: 
+                - master
+                - main

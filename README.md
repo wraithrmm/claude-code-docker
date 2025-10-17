@@ -2,29 +2,22 @@
 confluence:
   page_id: 2072870914
   space: "Polaris"
-  title: "Aurora Commerce Claude Code (Docker Image)"
+  title: "Claude Code (Docker Image)"
   labels: ["automation", "dev-tooling", "documentation"]
   update_mode: "replace"
 ---
 
 > Never install and run Claude Code locally on a device used to perform or manage company work.
 
-Aurora Commerce now permit the use of Claude Code on our internal repositories, including:
-
-- Aurora Demo
-- Aurora Core
-- Claude Code
-- Payment Plugin Microservices
-
-If your repository does not fall into the above list, it may need a security review. Please contact your AI Governance Officer for giudance if in doubt.
+This project allows the use of Claude Code on your repositories for AI-assisted development.
 
 > All the usual stipulations regarding safe a secure use of IA and handling of PII apply to use of CLaude Code regardless of its tooling status.
 >
 > Please ensure you are farmiliar with our AI Governance Policy before using this tooling.
 
-A containerized environment that integrates [Claude Code](https://claude.ai/code) with Aurora Commerce's PHP/Apache infrastructure, enabling developers to run multiple Claude Code instances locally on any mapped codebase.
+A containerized environment that integrates [Claude Code](https://claude.ai/code) with a PHP/Apache infrastructure, enabling developers to run multiple Claude Code instances locally on any mapped codebase.
 
-Before working with or on this, you must read and be confident you understand the [Aurora Commerce AI Governance Policy](https://auroracommerce.atlassian.net/wiki/spaces/PM/pages/1981841412/AI+Governance+Policy) before using Claude Code.
+Before working with or on this, ensure you understand the appropriate AI usage guidelines for your organization.
 
 ## Table of Contents
 
@@ -35,7 +28,7 @@ Before working with or on this, you must read and be confident you understand th
 
 ## Overview
 
-This Docker image combines Aurora Commerce's custom PHP/Apache base image with Claude Code, providing a seamless development environment for AI-assisted coding. The container includes:
+This Docker image combines a custom PHP/Apache base image with Claude Code, providing a seamless development environment for AI-assisted coding. The container includes:
 
 - PHP 8.3 with Apache web server
 - Node.js LTS for Claude Code runtime
@@ -51,8 +44,8 @@ This Docker image combines Aurora Commerce's custom PHP/Apache base image with C
 ### Prerequisites
 
 - Docker installed on your development machine
-- Access to Aurora Commerce's AWS ECR registry (for base image)
-- AWS CLI configured with appropriate credentials
+- Docker Hub account (for pulling/pushing images)
+- Docker CLI configured with your credentials
 
 ### Building the Image
 
@@ -63,22 +56,10 @@ This Docker image combines Aurora Commerce's custom PHP/Apache base image with C
    cd ac-ai-claudecode
    ```
 
-2. **Generate your temporary AWS credentials**
+2. **Build the Docker image**
 
    ```bash
-   ~/bin/createawstempcreds.sh -p ac-is1-git-access
-   ```
-
-3. **Authenticate with AWS ECR**
-
-   ```bash
-   aws --profile ac-is1-git-access-mfa ecr get-login-password | docker login --username AWS --password-stdin 571637302133.dkr.ecr.eu-west-1.amazonaws.com --password-stdin
-   ```
-
-4. **Build the Docker image**
-
-   ```bash
-   docker build -f Dockerfile -t ac-ai-claudecode-local . --build-arg TAGGED_VERSION=localdev
+   docker build -f Dockerfile -t claude-code-docker:local . --build-arg TAGGED_VERSION=local
    ```
 
    Optional build arguments:
@@ -175,7 +156,7 @@ For easier development, use Docker Compose:
 
 ```bash
 docker-compose build
-docker-compose run --rm claudecode
+docker-compose run --rm claude-code
 ```
 
 ## Using the Claude Code Image to Develop on a Codebase
@@ -213,7 +194,7 @@ docker-compose run --rm claudecode
      -v /Users/claude-code/:/Users/claude-code/ \
      -e HOST_PWD=$(pwd) \
      -e HOST_USER=$(whoami) \
-     571637302133.dkr.ecr.eu-west-1.amazonaws.com/ac-ai-claudecode:latest \
+     wraithrmm/claude-code-docker:latest \
      /bin/bash
    ```
 
@@ -229,7 +210,7 @@ docker-compose run --rm claudecode
      -e HOST_PWD=$(pwd) \
      -e HOST_USER=$(whoami) \
      -e RUN_AS_ROOT=true \
-     571637302133.dkr.ecr.eu-west-1.amazonaws.com/ac-ai-claudecode:latest \
+     wraithrmm/claude-code-docker:latest \
      /bin/bash
    ```
 
@@ -331,7 +312,7 @@ To run Claude Code on multiple codebases simultaneously:
      -v /Users/claude-code/:/Users/claude-code/ \
      -e HOST_PWD=$(pwd) \
      -e HOST_USER=$(whoami) \
-     571637302133.dkr.ecr.eu-west-1.amazonaws.com/ac-ai-claudecode:latest \
+     wraithrmm/claude-code-docker:latest \
      /bin/bash
    ```
 
@@ -347,7 +328,7 @@ To run Claude Code on multiple codebases simultaneously:
      -v /Users/claude-code/:/Users/claude-code/ \
      -e HOST_PWD=$(pwd) \
      -e HOST_USER=$(whoami) \
-     571637302133.dkr.ecr.eu-west-1.amazonaws.com/ac-ai-claudecode:latest \
+     wraithrmm/claude-code-docker:latest \
      /bin/bash
    ```
 
@@ -519,7 +500,7 @@ The container includes Playwright for browser automation testing with automatic 
 
 ## Security Considerations
 
-You must read and be confident you understand the [Aurora Commerce AI Governance Policy](https://auroracommerce.atlassian.net/wiki/spaces/PM/pages/1981841412/AI+Governance+Policy) before using Claude Code.
+Ensure you understand and follow appropriate AI usage guidelines and security practices when using Claude Code.
 
 ### Base Image Security
 
@@ -531,7 +512,7 @@ You must read and be confident you understand the [Aurora Commerce AI Governance
 
 ### API Key Security
 
-- Always abide by the security concerns enforced within the [Aurora Commerce AI Governance Policy](https://auroracommerce.atlassian.net/wiki/spaces/PM/pages/1981841412/AI+Governance+Policy)
+- Always abide by security best practices and your organization's AI usage policies
 - Store API keys in secure locations only that are not exposed to the AI
 - Use environment variables or mounted config files
 - Rotate API keys regularly
@@ -545,17 +526,17 @@ You must read and be confident you understand the [Aurora Commerce AI Governance
 ### Getting Help
 
 - Check Claude Code documentation: <https://docs.anthropic.com/en/docs/claude-code>
-- Contact the Aurora Commerce DevOps team for base image issues
+- Contact your DevOps team for base image issues
 
 ## Contributing
 
 When contributing to this Docker image:
 
-1. Follow Aurora Commerce coding standards
+1. Follow established coding standards
 2. Test changes thoroughly before submitting
 3. Update documentation as needed
 4. Submit changes through the standard PR process
 
 ## License
 
-This project follows Aurora Commerce's standard licensing terms.
+This project is provided under standard open source licensing terms.

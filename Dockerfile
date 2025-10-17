@@ -1,12 +1,13 @@
 ARG PHP_VERSION=8.3
 ARG OS_RELEASE=-bookworm
-FROM 571637302133.dkr.ecr.eu-west-1.amazonaws.com/docker-base-php-apache:${PHP_VERSION}${OS_RELEASE}
+# Base image - replace with your PHP/Apache base image
+FROM php:${PHP_VERSION}-apache${OS_RELEASE}
 
 ARG TAGGED_VERSION
 ARG CACHE_BUST
 
-LABEL "com.auroracommerce.aurora.service"="claudecode" \
-    "com.auroracommerce.aurora.version"="${TAGGED_VERSION}"
+LABEL "service"="claudecode" \
+    "version"="${TAGGED_VERSION}"
 
 # Update and install system packages
 RUN apt-get update && \

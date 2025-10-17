@@ -1,6 +1,6 @@
 # Playwright Visual Testing Guidelines
 
-This document provides comprehensive guidance for using Playwright to verify visual changes in the Aurora Commerce platform.
+This document provides comprehensive guidance for using Playwright to verify visual changes in web applications.
 
 ## CRITICAL: Mandatory Visual Verification
 

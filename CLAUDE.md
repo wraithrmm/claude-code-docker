@@ -4,21 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains a Docker prototype for integrating Claude Code into the Aurora Commerce infrastructure. The project creates a containerized environment that combines a PHP/Apache base image with Claude Code installation with the objective of allow staff to run Claude Code in a Docker container so that they can run multiple instances locally, at once, on any mapped codebase.
+This repository contains a Docker prototype for integrating Claude Code into a development environment. The project creates a containerized environment that combines a PHP/Apache base image with Claude Code installation with the objective of allowing developers to run Claude Code in a Docker container so that they can run multiple instances locally, at once, on any mapped codebase.
 
 ## Architecture
 
-- **Base Image**: Uses Aurora Commerce's custom PHP/Apache base image from ECR (`571637302133.dkr.ecr.eu-west-1.amazonaws.com/docker-base-php-apache`)
+- **Base Image**: Uses a custom PHP/Apache base image
 - **Runtime Environment**: Node.js LTS installed alongside PHP/Apache for Claude Code functionality
 - **Working Directory**: `/workspace` is the designated directory for Claude Code projects within the container
-- **Service Identity**: Tagged as `claudecode` service in Aurora Commerce's labeling system
+- **Service Identity**: Tagged as `claudecode` service
 
 ## Docker Commands
 
 Build the Docker image:
 
 ```bash
-docker build -f Dockerfile -t ac-ai-claudecode-local . --build-arg TAGGED_VERSION=localdev
+docker build -f Dockerfile -t claude-code-docker:local . --build-arg TAGGED_VERSION=local
 ```
 
 Run the container:
@@ -32,7 +32,7 @@ docker run -it --rm \
   -v /Users/claude-code:/Users/claude-code \
   -e HOST_PWD=$(pwd) \
   -e HOST_USER=$(whoami) \
-  ac-ai-claudecode-local:localdev \
+  claude-code-docker:local \
   /bin/bash
 ```
 
@@ -40,7 +40,7 @@ Note: The container includes pre-configured MCP servers (like Playwright) in `/w
 
 ## Security Scanning
 
-The repository includes `.trivyignore` to suppress base image security warnings (DS002) since the Aurora Commerce base image runs as root by design.
+The repository includes `.trivyignore` to suppress base image security warnings (DS002) since the base image runs as root by design.
 
 ## Development Notes
 
@@ -140,7 +140,7 @@ docker run -it --rm \
   -v /Users/claude-code:/Users/claude-code \
   -e HOST_PWD=$(pwd) \
   -e HOST_USER=$(whoami) \
-  ac-ai-claudecode-local \
+  wraithrmm/claude-code-docker:latest \
   /bin/bash
 ```
 

@@ -2,12 +2,12 @@
 
 ## Overview
 
-This file provides guidance for building efficient CircleCI pipelines for Aurora Commerce projects. When changes are pushed to the GIT Repository, CircleCI triggers the build process defined in `config.yml`.
+This file provides guidance for building efficient CircleCI pipelines. When changes are pushed to the GIT Repository, CircleCI triggers the build process defined in `config.yml`.
 
 ## Important Documentation
 
-Always consult the Aurora Commerce build tools documentation:
-https://circleci.com/developer/orbs/orb/aurora-commerce/ac-build-tools
+For CircleCI documentation, see:
+https://circleci.com/docs/
 
 ## Workflow Optimization Patterns
 
@@ -117,5 +117,5 @@ This change allows test to run completely independently while scan processes the
 2. **Use workspaces** - Share artifacts between jobs efficiently  
 3. **Enable caching** - Docker layer caching and dependency caching
 4. **Minimize redundancy** - Checkout and build only when necessary
-5. **Follow conventions** - Use Aurora Commerce patterns and contexts
+5. **Follow conventions** - Use established patterns and contexts
 6. **Document changes** - Explain non-obvious workflow decisions

@@ -1,14 +1,14 @@
 version: '3.8'
 
 services:
-  claudecode:
+  claude-code:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        TAGGED_VERSION: localdev
-    image: ac-ai-claudecode-local:localdev
-    container_name: ac-claudecode
+        TAGGED_VERSION: local
+    image: claude-code-docker:local
+    container_name: claude-code
     stdin_open: true
     tty: true
     volumes:
