@@ -162,5 +162,9 @@ COPY assets/.claude /workspace/.claude
 COPY assets/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Copy Claude wrapper script to /usr/local/bin (in PATH)
+COPY assets/claude-wrapper.sh /usr/local/bin/claude-wrapper
+RUN chmod +x /usr/local/bin/claude-wrapper
+
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
