@@ -539,4 +539,28 @@ When contributing to this Docker image:
 
 ## License
 
-This project is provided under standard open source licensing terms.
+This project is licensed under the **PolyForm Shield License 1.0.0**.
+
+### What This Means
+
+**You CAN:**
+- Use this software for free for any purpose
+- Modify the software for your own use
+- Distribute copies of the software
+- Use this software commercially to build your own solutions
+
+**You CANNOT:**
+- Create a competing product or service using this software
+- Rebrand and sell this software as your own product
+- Offer this software as a hosted service that competes with the original
+
+### License Details
+
+The PolyForm Shield License allows free use while preventing competitors from simply repackaging and selling the software. If you're using this tool to develop your own applications, you're free to do so. If you want to create a competing "Claude Code Docker" service, you'll need a separate commercial license.
+
+Full license text: [LICENSE](LICENSE)
+License information: https://polyformproject.org/licenses/shield/1.0.0/
+
+```
+Required Notice: Copyright (c) 2025-present Richard Mann
+```

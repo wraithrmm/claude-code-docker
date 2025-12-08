@@ -1,4 +1,9 @@
 #!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
 # Show uncommitted changes with helpful context
 
 # Check if we're in a git repository

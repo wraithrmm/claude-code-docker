@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: PolyForm-Shield-1.0.0
+// Copyright (c) 2025-present Richard Mann
+// Licensed under the PolyForm Shield License 1.0.0
+// https://polyformproject.org/licenses/shield/1.0.0/
+
 import { test, expect } from '@playwright/test';
 
 test('has title', async ({ page }) => {

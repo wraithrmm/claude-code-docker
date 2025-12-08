@@ -1,4 +1,8 @@
 #!/usr/bin/env bats
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
 
 # Tests for init-playground script (renamed from ai-playground-init.sh)
 
