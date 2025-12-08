@@ -7,7 +7,11 @@ ARG TAGGED_VERSION
 ARG CACHE_BUST
 
 LABEL "service"="claudecode" \
-    "version"="${TAGGED_VERSION}"
+    "version"="${TAGGED_VERSION}" \
+    "org.opencontainers.image.licenses"="PolyForm-Shield-1.0.0" \
+    "org.opencontainers.image.title"="Claude Code Docker" \
+    "org.opencontainers.image.description"="Containerized Claude Code development environment" \
+    "org.opencontainers.image.vendor"="Richard Mann"
 
 # Update and install system packages
 RUN apt-get update && \
@@ -145,6 +149,9 @@ RUN chown -R www-data:www-data /workspace
 
 # Create Claude config directory
 RUN mkdir -p /root/.claude
+
+# Copy LICENSE file for license compliance
+COPY LICENSE /workspace/LICENSE
 
 # Copy CLAUDE.md with Docker-in-Docker instructions to root
 COPY assets/CLAUDE.md /workspace/CLAUDE.md
