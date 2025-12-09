@@ -1,19 +1,10 @@
----
-confluence:
-  page_id: 2072870914
-  space: "Polaris"
-  title: "Claude Code (Docker Image)"
-  labels: ["automation", "dev-tooling", "documentation"]
-  update_mode: "replace"
----
-
 > Never install and run Claude Code locally on a device used to perform or manage company work.
 
 This project allows the use of Claude Code on your repositories for AI-assisted development.
 
-> All the usual stipulations regarding safe a secure use of IA and handling of PII apply to use of CLaude Code regardless of its tooling status.
+> All the usual stipulations regarding safe a secure use of AI and handling of PII apply to use of Claude Code regardless of its tooling status.
 >
-> Please ensure you are farmiliar with our AI Governance Policy before using this tooling.
+> Please ensure you are farmiliar with your AI Governance Policy before using this tooling.
 
 A containerized environment that integrates [Claude Code](https://claude.ai/code) with a PHP/Apache infrastructure, enabling developers to run multiple Claude Code instances locally on any mapped codebase.
 
