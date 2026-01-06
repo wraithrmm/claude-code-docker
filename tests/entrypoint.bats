@@ -1162,7 +1162,7 @@ load test_helper
 
 @test "14.5: preserves complete JSON structure in settings" {
     mkdir -p "$TEST_PROJECT/.claude"
-    create_file "$TEST_PROJECT/.claude/settings.local.json" '{"permissions":{"allow":["Bash(git:*)","Read(/workspace/**)"],"deny":["Bash(rm:*)"],"allowedTools":["Edit","Write"]}}'
+    create_file "$TEST_PROJECT/.claude/settings.local.json" '{"permissions":{"allow":["Bash(git:read)","Read(/workspace/files)"],"deny":["Bash(rm:force)"],"allowedTools":["Edit","Write"]}}'
 
     run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
 
@@ -1176,6 +1176,6 @@ load test_helper
     assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"permissions"'
     assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"allow"'
     assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"deny"'
-    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(git:*)'
-    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(rm:*)'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(git:read)'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(rm:force)'
 }
