@@ -36,23 +36,37 @@ jobs:
           command: |
             echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
       - run:
-          name: Build Docker Image
+          name: Set up QEMU for multi-architecture builds
           command: |
-            # Create a simple tag from branch and commit
+            docker run --privileged --rm tonistiigi/binfmt --install all
+      - run:
+          name: Set up Docker Buildx
+          command: |
+            docker buildx create --name multiarch --driver docker-container --use
+            docker buildx inspect --bootstrap
+      - run:
+          name: Build AMD64 Image for Scanning
+          command: |
+            # Create tag from branch and commit
             TAG=$(echo "<< pipeline.git.branch >>-<< pipeline.git.revision >>" | tr / -)
             IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
-            
-            echo "Building image: ${IMAGE_NAME}"
-            docker build -t ${IMAGE_NAME} --build-arg TAGGED_VERSION=${TAG} .
-            
-            echo "Built image successfully"
-            docker images | grep << pipeline.parameters.docker_repo_url >>
+
+            echo "Building amd64 image for scanning: ${IMAGE_NAME}"
+            docker buildx build \
+              --platform linux/amd64 \
+              --build-arg TAGGED_VERSION=${TAG} \
+              --tag ${IMAGE_NAME} \
+              --load \
+              .
+
+            echo "Built amd64 image successfully"
+            docker images | grep "<< pipeline.parameters.docker_repo_url >>"
       - run:
           name: Save Docker Image
           command: |
             TAG=$(echo "<< pipeline.git.branch >>-<< pipeline.git.revision >>" | tr / -)
             IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
-            
+
             echo "Saving image to workspace"
             mkdir -p /tmp/workspace
             docker save -o /tmp/workspace/image.tar ${IMAGE_NAME}
@@ -86,14 +100,14 @@ jobs:
           command: |
             TAG=$(cat /tmp/workspace/tag.txt)
             IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
-            
+
             extra_options=""
-            
+
             # Check for trivyignore file
             if [[ -f .trivyignore.yml ]]; then
               extra_options="${extra_options} --ignorefile .trivyignore.yml"
             fi
-            
+
             # Run Trivy image scan
             ~/bin/trivy image \
               --exit-code 1 \
@@ -103,7 +117,7 @@ jobs:
               ${extra_options} \
               --show-suppressed \
               ${IMAGE_NAME}
-            
+
             # Run Trivy config scan on current directory
             ~/bin/trivy config \
               --exit-code 1 \
@@ -138,6 +152,7 @@ jobs:
     docker:
       - image: cimg/base:stable
     steps:
+      - checkout
       - setup_remote_docker:
           docker_layer_caching: true
       - attach_workspace:
@@ -147,26 +162,40 @@ jobs:
           command: |
             echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
       - run:
-          name: Load Docker Image
+          name: Set up QEMU for multi-architecture builds
           command: |
-            echo "Loading image from workspace"
-            docker load -i /tmp/workspace/image.tar
+            docker run --privileged --rm tonistiigi/binfmt --install all
       - run:
-          name: Push Docker Image
+          name: Set up Docker Buildx
+          command: |
+            docker buildx create --name multiarch --driver docker-container --use
+            docker buildx inspect --bootstrap
+      - run:
+          name: Build and Push Multi-Architecture Image
           command: |
             TAG=$(cat /tmp/workspace/tag.txt)
             IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
-            
-            echo "Pushing image: ${IMAGE_NAME}"
-            docker push ${IMAGE_NAME}
-            
-            # Also tag as 'latest' if on master branch
+
+            echo "Building and pushing multi-arch image: ${IMAGE_NAME}"
+
+            # Build tags list
+            TAGS="--tag ${IMAGE_NAME}"
+
+            # Also tag as 'latest' if on master/main branch
             if [[ "<< pipeline.git.branch >>" == "master" || "<< pipeline.git.branch >>" == "main" ]]; then
               LATEST_IMAGE="<< pipeline.parameters.docker_repo_url >>:latest"
-              docker tag ${IMAGE_NAME} ${LATEST_IMAGE}
-              docker push ${LATEST_IMAGE}
-              echo "Also pushed as: ${LATEST_IMAGE}"
+              TAGS="${TAGS} --tag ${LATEST_IMAGE}"
+              echo "Will also push as: ${LATEST_IMAGE}"
             fi
+
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              --build-arg TAGGED_VERSION=${TAG} \
+              ${TAGS} \
+              --push \
+              .
+
+            echo "Successfully pushed multi-arch image"
 
 workflows:
   build_and_push:
