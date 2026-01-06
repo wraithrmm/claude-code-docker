@@ -20,11 +20,11 @@
       "Bash(/workspace/.claude/bin/list-project-tasks:*)",
       "Bash(/workspace/.claude/bin/move-project-task:*)",
       "Bash(/workspace/.claude/bin/git-diff.sh:*)",
+      "Bash(/workspace/.claude/bin/run-linters:*)",
+      "Bash(/workspace/.claude/bin/run-tests:*)",
       "Bash(npx playwright:*)",
       "Bash(npx @playwright/test:*)",
-      "Bash(playwright:*)",
-      "Bash(.claude/bin/run-linters:*)",
-      "Bash(.claude/bin/run-tests:*)"
+      "Bash(playwright:*)"
     ],
     "deny": [
       "Read(**/.env)",
