@@ -127,6 +127,17 @@ if [[ -d "/workspace/project/.claude/skills" ]]; then
     echo "Project skills copied to container"
 fi
 
+# Check if project has settings.local.json
+if [[ -f "/workspace/project/.claude/settings.local.json" ]]; then
+    echo "Found project-specific settings in /workspace/project/.claude/settings.local.json"
+
+    # Copy settings.local.json to container if it doesn't exist
+    # Using -n to not overwrite existing file
+    cp -n /workspace/project/.claude/settings.local.json /workspace/.claude/settings.local.json 2>/dev/null || true
+
+    echo "Project settings copied to container"
+fi
+
 # Check if project has custom MCP configuration
 if [[ -f "/workspace/project/.claude/.mcp.json" ]]; then
     echo "Found project-specific MCP configuration in /workspace/project/.claude/.mcp.json"
