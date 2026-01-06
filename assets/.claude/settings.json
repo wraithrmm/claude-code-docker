@@ -22,7 +22,9 @@
       "Bash(/workspace/.claude/bin/git-diff.sh:*)",
       "Bash(npx playwright:*)",
       "Bash(npx @playwright/test:*)",
-      "Bash(playwright:*)"
+      "Bash(playwright:*)",
+      "Bash(.claude/bin/run-linters:*)",
+      "Bash(.claude/bin/run-tests:*)"
     ],
     "deny": [
       "Read(**/.env)",
