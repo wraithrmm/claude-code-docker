@@ -13,9 +13,21 @@ Before working with or on this, ensure you understand the appropriate AI usage g
 ## Table of Contents
 
 - [Overview](#overview)
-- [Developing the Claude Code Docker Image Itself](#developing-the-claude-code-docker-image-itself)
-- [Using the Claude Code Image to Develop on a Codebase](#using-the-claude-code-image-to-develop-on-a-codebase)
+- [Quick Start](#quick-start)
+- [Initial Setup](#initial-setup)
+- [Running Claude Code on Your Project](#running-claude-code-on-your-project)
+- [Configuration Reference](#configuration-reference)
+  - [Volume Mounts](#volume-mounts-explained)
+  - [Environment Variables](#environment-variables-explained)
+  - [Git Configuration](#optional-git-configuration-for-commits)
+- [File Permissions and User Management](#file-permissions-and-user-management)
+- [Running Multiple Instances](#running-multiple-instances)
+- [Customizing Claude Code Behavior](#customizing-claude-code-behavior)
+- [Playwright Integration](#playwright-integration)
+- [Best Practices](#best-practices)
 - [Security Considerations](#security-considerations)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
@@ -30,143 +42,58 @@ This Docker image combines a custom PHP/Apache base image with Claude Code, prov
 - Automatic user detection and permission management
 - Secure user switching with gosu for proper file ownership
 
-## Developing the Claude Code Docker Image Itself
+## Quick Start
 
-### Prerequisites
+Get Claude Code running on your project in 60 seconds:
 
-- Docker installed on your development machine
-- Docker Hub account (for pulling/pushing images)
-- Docker CLI configured with your credentials
+1. **Prerequisites**: Docker installed, Claude subscription or API key
 
-### Building the Image
-
-1. **Clone the repository**
+2. **One-time setup**:
 
    ```bash
-   git clone [repository-url]
-   cd ac-ai-claudecode
+   mkdir -p ~/.claude /Users/claude-code
    ```
 
-2. **Build the Docker image**
+3. **Run on your project**:
 
    ```bash
-   docker build -f Dockerfile -t claude-code-docker:local . --build-arg TAGGED_VERSION=local
+   cd /path/to/your/project
+   docker run -it --rm \
+     -v $(pwd):/workspace/project \
+     -v ~/.claude.json:/opt/user-claude/.claude.json \
+     -v ~/.claude:/opt/user-claude/.claude \
+     -v /var/run/docker.sock:/var/run/docker.sock \
+     -v /Users/claude-code/:/Users/claude-code/ \
+     -e HOST_PWD=$(pwd) \
+     -e HOST_USER=$(whoami) \
+     wraithrmm/claude-code-docker:latest
    ```
 
-   Optional build arguments:
-
-   - `PHP_VERSION`: Specify PHP version (default: 8.3)
-   - `OS_RELEASE`: Specify OS release (default: -bookworm)
-   - `TAGGED_VERSION`: Version tag for the image
-   - `CACHE_BUST`: Force rebuild without cache
-
-### Modifying the Image
-
-When making changes to the Docker image:
-
-1. **Update the Dockerfile** with your modifications
-2. **Test locally** using the build command above
-3. **Update version tags** appropriately
-4. **Document changes** in commit messages
-5. **Update this README** if adding new features or changing usage
-
-### Testing the Entrypoint Script
-
-The repository includes a comprehensive test suite for the entrypoint script using BATS (Bash Automated Testing System).
-
-#### Test Structure
-
-- `tests/` - Test directory
-  - `entrypoint.bats` - Main test file containing all test cases
-  - `test_helper.bash` - Utility functions for testing
-- `run-tests.sh` - Convenience script to run tests locally
-
-#### Running Tests Locally
-
-```bash
-# Install BATS (one-time setup)
-npm install -g bats
-
-# Run all tests
-./run-tests.sh
-
-# Run specific tests
-bats tests/entrypoint.bats --filter "test name"
-```
-
-#### CI/CD Integration
-
-Tests are automatically run in CircleCI before building the Docker image. The build will fail if any tests fail.
-
-#### Writing New Tests
-
-When adding new functionality to the entrypoint script, please add corresponding tests to ensure the behavior is verified.
-
-### Code Quality Checks
-
-**Important:** After making any changes to the Dockerfile, you must run both security scanning and linting tools before committing.
-
-The repository includes Docker-based scanning tools that mirror the CircleCI pipeline checks. These tools require no local installation - everything runs in Docker containers.
-
-#### Available Tools
-
-1. **Dockerfile Linter** - Uses Hadolint to check Dockerfile best practices
-2. **Security Scanner** - Uses Trivy to scan for vulnerabilities in the built image
-
-#### Running Quality Checks
-
-```bash
-# Run Dockerfile linter
-./.claude/bin/run-linters
-
-# Run security vulnerability scan (builds the image automatically)
-./.claude/bin/run-security-scan
-
-# Or scan an existing image
-./.claude/bin/run-security-scan ac-ai-claudecode-local:latest
-```
-
-#### Development Workflow
-
-1. Make your changes to the Dockerfile
-2. Run the test suite: `./run-tests.sh`
-3. Run the linter: `./.claude/bin/run-linters`
-4. Run the security scan: `./.claude/bin/run-security-scan`
-5. Address any issues found before committing
-6. Commit your changes
-
-#### Understanding the Output
-
-- **Hadolint** will report warnings about best practices (e.g., pinning versions, consolidating RUN commands)
-- **Trivy** will scan for known vulnerabilities in packages and dependencies
-- The `.trivyignore.yml` file suppresses known acceptable warnings (like DS002 for root user)
-
-### Docker Compose Development
-
-For easier development, use Docker Compose:
-
-```bash
-docker-compose build
-docker-compose run --rm claude-code
-```
-
-## Using the Claude Code Image to Develop on a Codebase
-
-### Initial Setup
-
-1. **Obtain Your Claude Code Enabled Subscription**
-
-2. **Configure Claude Code** (first-time setup)
+4. **Inside the container**:
 
    ```bash
-   # Create config directory
-   mkdir -p ~/.claude
-
-   # Create config file with your API key
-   echo '{"apiKey": "your-api-key-here"}' > ~/.claude.json
+   claude  # Start interactive session
    ```
 
-### Running Claude Code on Your Project
+## Initial Setup
+
+1. **Create required directories**
+
+   ```bash
+   mkdir -p ~/.claude /Users/claude-code
+   ```
+
+2. **Authentication** (first time only)
+
+   When you first run `claude` inside the container, you'll be prompted to authenticate:
+
+   - **Claude subscription**: Follow the browser-based login flow
+   - **API key**: Enter your API key when prompted, or pre-create `~/.claude.json`:
+     ```bash
+     echo '{"apiKey": "your-api-key-here"}' > ~/.claude.json
+     ```
+
+## Running Claude Code on Your Project
 
 1. **Navigate to your project directory**
 
@@ -222,10 +149,12 @@ docker-compose run --rm claude-code
    claude "explain the purpose of this codebase"
    ```
 
+## Configuration Reference
+
 ### Volume Mounts Explained
 
 - `-v $(pwd):/workspace/project`: Mounts your current directory to the container's project workspace
-- `-v ~/.claude.json:/opt/user-claude/.claude.json`: Provides API key configuration (mounted to avoid permission conflicts)
+- `-v ~/.claude.json:/opt/user-claude/.claude.json`: (Optional) Provides API key if using direct API access instead of subscription login
 - `-v ~/.claude:/opt/user-claude/.claude`: Persists Claude Code settings and cache (mounted to avoid permission conflicts)
 - `-v /var/run/docker.sock:/var/run/docker.sock`: Provides access to the running docker sock for running containers from within this container
 - `-v /Users/claude-code/:/Users/claude-code/`: Provides a consistent path for file exchange and Playwright tests between host and container
@@ -244,7 +173,7 @@ To use your host git configuration for **local commits only**, add this volume m
 -v ~/.gitconfig:/opt/user-gitconfig/.gitconfig:ro \
 ```
 
-**⚠️ Important Limitations:**
+**Important Limitations:**
 
 - This provides git **identity** (name, email, aliases) for commits
 - This does **NOT** provide authentication credentials
@@ -255,17 +184,17 @@ The `:ro` flag mounts the config read-only for security.
 
 **What this enables:**
 
-- ✅ Local commits with your correct name/email
-- ✅ Git aliases and preferences
-- ✅ Git diff/log formatting preferences
+- Local commits with your correct name/email
+- Git aliases and preferences
+- Git diff/log formatting preferences
 
 **What this does NOT enable:**
 
-- ❌ Push/pull to remote repositories
-- ❌ Clone private repositories
-- ❌ Any operation requiring SSH keys or tokens
+- Push/pull to remote repositories
+- Clone private repositories
+- Any operation requiring SSH keys or tokens
 
-### File Permissions and User Management
+## File Permissions and User Management
 
 By default, the container automatically:
 
@@ -287,7 +216,7 @@ By default, the container automatically:
 - No more `sudo chown` needed after container operations
 - Seamless file editing between host and container
 
-### Running Multiple Instances
+## Running Multiple Instances
 
 To run Claude Code on multiple codebases simultaneously:
 
@@ -323,132 +252,89 @@ To run Claude Code on multiple codebases simultaneously:
      /bin/bash
    ```
 
+## Customizing Claude Code Behavior
+
+Claude Code can be customized for your specific projects. All customizations go in your project's `.claude/` directory.
+
+For full documentation with examples, see [docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md).
+
+### Project CLAUDE.md
+
+Add a `CLAUDE.md` file to your project root with project-specific instructions, e.g:
+
+```markdown
+# Project Instructions
+
+## Code Style
+- Use TypeScript strict mode
+- Follow ESLint rules
+
+## Testing
+Run tests with: `npm test`
+```
+
 ### Custom Commands
 
-Claude Code supports custom commands that can be added at two levels:
+Create slash commands in `.claude/commands/`:
 
-#### 1. Repository-Level Commands (Built into the Image)
-
-Commands that should be available in ALL Claude Code containers are placed in this repository:
-
-```text
-ac-ai-claudecode/
-└── assets/
-    └── .claude/
-        └── commands/
-            ├── test-and-fix.md      # Example built-in command
-            └── your-command.md      # Add new built-in commands here
+```
+your-project/.claude/commands/deploy.md
 ```
 
-These commands are built into the Docker image and available to all users.
+Usage: `/deploy`
 
-#### 2. Project-Level Commands (Per Codebase)
+### Custom Agents
 
-Commands specific to a particular project are placed in that project's repository. To avoid command name conflicts, it's recommended to use subdirectories:
+Create specialized agents in `.claude/agents/`:
 
-```text
-your-project/
-└── .claude/
-    └── commands/
-        └── yourprojectname/     # Use a subdirectory to namespace your commands
-            ├── deploy.md        # Project-specific command: /yourprojectname/deploy
-            └── custom-lint.md   # Another command: /yourprojectname/custom-lint
+```
+your-project/.claude/agents/security-reviewer.md
 ```
 
-When you run the Claude Code container, these project commands are automatically detected and made available alongside the built-in commands.
+Agents use YAML frontmatter to define their behavior and are automatically invoked when their description matches the task.
 
-#### How Commands are Combined
+### Project settings.json
 
-When the container starts:
+Configure permissions in `.claude/settings.json`:
 
-1. Built-in commands from `assets/.claude/commands/` are already in `/workspace/.claude/commands/`
-2. The entrypoint script checks for `/workspace/project/.claude/commands/`
-3. If found, project commands are copied to `/workspace/.claude/commands/`
-4. Both sets of commands are now available in Claude Code
-
-#### Using Commands
-
-Inside the Claude Code session, you can use any available command:
-
-```bash
-# Built-in command
-/test-and-fix
-
-# Project-specific command (with namespace)
-/deploy
-/custom-lint
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm test:*)"],
+    "deny": ["Read(**/.env*)"]
+  }
+}
 ```
 
 ### MCP Server Configuration
 
-The container includes pre-configured MCP servers (like Playwright). Projects can add their own MCP servers by creating a `.mcp.json` file in the project's `.claude` directory.
-
-#### How MCP Configuration Works
-
-1. Container provides default MCP servers in `/workspace/.mcp.json`
-2. Project can define additional servers in `/workspace/project/.claude/.mcp.json`
-3. During startup, configurations are automatically merged
-4. Project servers take precedence if names conflict
-5. Invalid JSON files are handled gracefully - valid configuration is preserved
-
-#### Example Project MCP Configuration
-
-Create a `.mcp.json` file in your project's `.claude` directory:
+Add MCP servers in `.claude/.mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "aws-docs": {
+    "your-server": {
       "type": "stdio",
-      "command": "uvx",
-      "args": ["awslabs.aws-documentation-mcp-server@latest"],
-      "env": {
-        "AWS_DOCUMENTATION_PARTITION": "aws",
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      }
-    },
-    "aws-knowledge": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "mcp-proxy",
-        "--transport",
-        "streamablehttp",
-        "https://knowledge-mcp.global.api.aws"
-      ],
-      "env": {}
-    },
-    "terraform": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "hashicorp/terraform-mcp-server"],
-      "env": {}
+      "command": "your-command",
+      "args": []
     }
   }
 }
 ```
 
-#### MCP Configuration Merging Rules
+Project MCP servers are automatically merged with container defaults at startup.
 
-If either configuration file contains invalid JSON, the system will:
-
-- Use the valid configuration if only one is valid
-- Keep the original container configuration if both are invalid
-- Merge both configurations if both are valid (project servers override container servers with same names)
-
-**Note**: Only `.claude/.mcp.json` is checked in the project directory. Any `.mcp.json` file in the project root will be ignored.
-
-### Playwright Integration
+## Playwright Integration
 
 The container includes Playwright for browser automation testing with automatic setup and initialization.
 
-#### Features
+### Features
 
 - **Automatic Setup**: On first run, the container automatically creates the test directory structure and copies example files
 - **Host Access**: All test files are stored at `/Users/claude-code/tests/` (same path in both container and host)
 - **Pre-configured**: Includes TypeScript support and all Playwright browsers installed
 
-#### Using Playwright
+### Using Playwright
 
 1. **First Run**: The container automatically initializes the test structure:
 
@@ -472,13 +358,13 @@ The container includes Playwright for browser automation testing with automatic 
 
 3. **Writing Tests**: All test files in `/Users/claude-code/tests/playwright/` are accessible from your host IDE for editing
 
-#### Important Notes
+### Important Notes
 
 - The `/Users/claude-code/` directory must be mounted when running the container
 - Existing files are never overwritten, preserving your custom tests
 - Test results and reports are accessible from both host and container
 
-### Best Practices
+## Best Practices
 
 1. **Version Control**: Ensure your code is committed before running Claude Code modifications
 2. **Code Review**: Always review Claude Code's suggestions before applying them
@@ -521,12 +407,13 @@ Ensure you understand and follow appropriate AI usage guidelines and security pr
 
 ## Contributing
 
-When contributing to this Docker image:
+For information on developing and contributing to this Docker image, see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
-1. Follow established coding standards
-2. Test changes thoroughly before submitting
-3. Update documentation as needed
-4. Submit changes through the standard PR process
+This includes:
+- Building the image locally
+- Running tests
+- Code quality checks (linting, security scanning)
+- Development workflow
 
 ## License
 
