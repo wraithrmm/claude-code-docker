@@ -150,7 +150,7 @@ RUN chown -R www-data:www-data /workspace
 RUN mkdir -p /root/.claude
 
 # Copy LICENSE file for license compliance
-COPY LICENSE /workspace/LICENSE
+COPY LICENSE.md /workspace/LICENSE.md
 
 # Copy CLAUDE.md with Docker-in-Docker instructions to root
 COPY assets/CLAUDE.md /workspace/CLAUDE.md
