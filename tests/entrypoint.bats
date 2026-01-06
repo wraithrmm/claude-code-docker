@@ -1096,3 +1096,86 @@ load test_helper
     # File won't exist because cp can't create parent directory with /* glob
     assert_file_not_exists "$TEST_WORKSPACE/.claude/skills/test.md"
 }
+
+# Test 14: Settings.local.json copying functionality
+
+@test "14.1: handles missing settings.local.json gracefully" {
+    # Don't create settings.local.json file
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    refute_output_contains "Found project-specific settings"
+    refute_output_contains "Project settings copied"
+}
+
+@test "14.2: copies settings.local.json when it exists" {
+    mkdir -p "$TEST_PROJECT/.claude"
+    create_file "$TEST_PROJECT/.claude/settings.local.json" '{"permissions":{"allow":["Bash(git:*)"],"deny":[]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Found project-specific settings in"
+    assert_output_contains "Project settings copied to container"
+    assert_file_exists "$TEST_WORKSPACE/.claude/settings.local.json"
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"permissions"'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"allow"'
+}
+
+@test "14.3: respects no-overwrite flag for existing settings.local.json" {
+    # Create existing container settings
+    create_file "$TEST_WORKSPACE/.claude/settings.local.json" '{"existing":"container-settings"}'
+
+    # Create project settings
+    mkdir -p "$TEST_PROJECT/.claude"
+    create_file "$TEST_PROJECT/.claude/settings.local.json" '{"new":"project-settings"}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Found project-specific settings"
+    assert_output_contains "Project settings copied to container"
+    # Original content should be preserved
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"existing"'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"container-settings"'
+    # New content should NOT be present
+    refute_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"new"'
+    refute_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"project-settings"'
+}
+
+@test "14.4: handles copy errors gracefully" {
+    mkdir -p "$TEST_PROJECT/.claude"
+    create_file "$TEST_PROJECT/.claude/settings.local.json" '{"test":"content"}'
+
+    # Make destination directory read-only to force copy error
+    chmod -w "$TEST_WORKSPACE/.claude"
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    # Should still succeed due to || true in the script
+    assert_success
+    assert_output_contains "Project settings copied to container"
+
+    # Restore permissions for cleanup
+    chmod +w "$TEST_WORKSPACE/.claude"
+}
+
+@test "14.5: preserves complete JSON structure in settings" {
+    mkdir -p "$TEST_PROJECT/.claude"
+    create_file "$TEST_PROJECT/.claude/settings.local.json" '{"permissions":{"allow":["Bash(git:*)","Read(/workspace/**)"],"deny":["Bash(rm:*)"],"allowedTools":["Edit","Write"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_file_exists "$TEST_WORKSPACE/.claude/settings.local.json"
+
+    # Verify the copied file is valid JSON by testing with jq
+    jq empty "$TEST_WORKSPACE/.claude/settings.local.json" || { echo "settings.local.json is not valid JSON" >&2; return 1; }
+
+    # Verify structure and content
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"permissions"'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"allow"'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" '"deny"'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(git:*)'
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(rm:*)'
+}
