@@ -35,6 +35,7 @@ create_test_workspace() {
     rm -rf "$TEST_WORKSPACE" "$TEST_PROJECT" "$TEST_CLAUDE_CODE"
     mkdir -p "$TEST_WORKSPACE/.claude/commands"
     mkdir -p "$TEST_WORKSPACE/.claude/bin"
+    mkdir -p "$TEST_WORKSPACE/.claude/skills"
     mkdir -p "$TEST_PROJECT"
     mkdir -p "$TEST_CLAUDE_CODE"
 }
