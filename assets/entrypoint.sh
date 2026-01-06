@@ -116,6 +116,17 @@ if [[ -d "/workspace/project/.claude/bin" ]]; then
     echo "Project bin scripts copied to container"
 fi
 
+# Check if project has custom skills
+if [[ -d "/workspace/project/.claude/skills" ]]; then
+    echo "Found project-specific skills in /workspace/project/.claude/skills/"
+
+    # Copy all files from project skills to container bin
+    # Using cp -r to preserve directory structure and -n to not overwrite existing files
+    cp -rn /workspace/project/.claude/skills/* /workspace/.claude/skills/ 2>/dev/null || true
+
+    echo "Project skills copied to container"
+fi
+
 # Check if project has custom MCP configuration
 if [[ -f "/workspace/project/.claude/.mcp.json" ]]; then
     echo "Found project-specific MCP configuration in /workspace/project/.claude/.mcp.json"
