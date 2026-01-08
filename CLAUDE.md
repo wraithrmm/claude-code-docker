@@ -68,25 +68,29 @@ This repository includes Docker-based scanning tools that mirror the CircleCI pi
 
 ### Available Scanning Tools
 
-1. **Dockerfile Linter** (`run-linters`) - Uses Hadolint to check Dockerfile best practices
+1. **Project Linter** (`run-linters`) - Runs all linters including:
+   - JSON validation for all `.json` files in the project
+   - Hadolint for Dockerfile best practices
 2. **Security Scanner** (`run-security-scan`) - Uses Trivy to scan for vulnerabilities
+
+**IMPORTANT**: Always use `./.claude/bin/run-linters` for validation. Do not use ad-hoc commands like `python3 -m json.tool` or manual validation. The run-linters script is the single source of truth for all linting and validation in this project.
 
 ### Running Code Quality Checks
 
-After making any changes to the Dockerfile, you MUST run both tools:
+After making any changes to the project, you MUST run the linter. After Dockerfile changes, also run the security scan:
 
 ```bash
-# Run Dockerfile linter
+# Run all linters (JSON validation, Dockerfile linting)
 ./.claude/bin/run-linters
 
-# Run security vulnerability scan (builds the image automatically)
+# Run security vulnerability scan (builds the image automatically, run after Dockerfile changes)
 ./.claude/bin/run-security-scan
 ```
 
 ### Alternative Usage
 
 ```bash
-# Lint a specific Dockerfile
+# Lint with a specific Dockerfile path (JSON validation always runs)
 ./.claude/bin/run-linters path/to/Dockerfile
 
 # Scan an existing Docker image
@@ -103,10 +107,10 @@ These same tools run automatically in the CircleCI pipeline:
 
 ### Development Workflow
 
-1. Make your changes to the Dockerfile
+1. Make your changes to the project files
 2. Run the test suite: `./run-tests.sh`
-3. Run the linter: `./.claude/bin/run-linters`
-4. Run the security scan: `./.claude/bin/run-security-scan`
+3. Run all linters: `./.claude/bin/run-linters` (validates JSON, lints Dockerfile)
+4. If Dockerfile was changed, run the security scan: `./.claude/bin/run-security-scan`
 5. Address any issues found before committing
 
 ## Important Note About CLAUDE.md Files
@@ -117,6 +121,75 @@ This repository contains two CLAUDE.md files with different purposes:
 2. **`/assets/CLAUDE.md`** - Instructions that will be copied into the container for Claude Code to use when working on OTHER codebases
 
 Do not add container-specific development instructions (like testing this container) to `assets/CLAUDE.md`.
+
+## Claude Code Hooks
+
+The container includes pre-configured Claude Code hooks that enforce deterministic behavior. These hooks are packaged into the final Docker image and affect Claude Code behavior when running inside the container on any codebase.
+
+### Hook File Locations
+
+| File | Purpose | Goes into Docker image? |
+|------|---------|------------------------|
+| `assets/.claude/settings.json` | Hook configuration (under `hooks` key) | **Yes** |
+| `assets/.claude/hooks/` | Shell scripts for command-based hooks (if needed) | **Yes** |
+| `.claude/settings.json` | This repo's dev environment only | No |
+
+**Flow**: `assets/.claude/settings.json` → copied to `/workspace/.claude/settings.json` in container → active for all projects
+
+### Current Hooks
+
+| Hook | Type | Purpose |
+|------|------|---------|
+| **Stop** | Prompt-based | Reminds Claude to run tests/linters after making code changes |
+
+### Stop Hook Behavior
+
+The Stop hook runs when Claude finishes responding and:
+
+1. **Checks for code changes**: Looks for Edit, Write, or MultiEdit tool usage in the session
+2. **Checks for testing**: Looks for lint-runner or unit-test-runner sub-agent invocations
+3. **Reminds if needed**: If code was changed but testing wasn't run, reminds Claude to use the sub-agents
+4. **Prevents loops**: If already reminded once (stop_hook_active=true), allows stopping
+
+This ensures Claude considers running the `run-tests` and `run-linters` helper scripts (via their respective sub-agents) after making changes.
+
+### Hook Configuration Format
+
+Hooks to be added to the final Docker Image are configured in `assets/.claude/settings.json` under the `hooks` key:
+
+### Managing Hooks in This Repository
+
+**Adding a new hook**:
+1. Edit `assets/.claude/settings.json`
+2. Add configuration under the appropriate event in the `hooks` object
+3. For command-based hooks, create scripts in `assets/.claude/hooks/`
+4. Run `./.claude/bin/run-linters` to validate JSON syntax
+5. Test by building and running the Docker image
+
+**Modifying an existing hook**:
+1. Edit the hook configuration in `assets/.claude/settings.json`
+2. Run `./.claude/bin/run-linters` to validate
+3. Rebuild Docker image to test changes
+
+**Testing hooks**:
+1. Build the Docker image locally: `docker build -f Dockerfile -t claude-code-docker:local .`
+2. Run the container and trigger the hook condition
+3. Verify the expected behavior occurs
+
+**Debugging hooks**:
+- Check hook timeout isn't too short (default 30s)
+- For prompt hooks, verify the prompt produces valid JSON
+- For command hooks, test the script independently first
+
+### Important Notes
+
+- Hooks in `assets/.claude/settings.json` go into the **final Docker image**, not the current dev environment
+- Changes require rebuilding the Docker image to take effect
+- The `timeout` value (in seconds) prevents hooks from hanging indefinitely
+- Prompt-based hooks use additional LLM tokens but provide intelligent analysis
+- Always validate changes with `./.claude/bin/run-linters` before committing
+
+**Reference**: [Claude Code Hooks Documentation](https://code.claude.com/docs/en/hooks)
 
 ## Playwright Integration
 
