@@ -1,4 +1,17 @@
 {
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You are evaluating whether Claude Code should stop or be reminded to run tests/linters.\n\nContext is provided via stdin as JSON with these fields:\n- stop_hook_active: If true, Claude is already continuing from a previous stop hook - you MUST allow stopping\n- transcript_path: Path to the session transcript JSONL file\n\nYour task:\n1. If stop_hook_active is true, respond: {\"decision\": \"approve\"}\n2. Read and parse the transcript JSONL file at transcript_path\n3. Check if code changes were made by looking for tool calls named \"Edit\", \"Write\", or \"MultiEdit\"\n4. If code changes were found, check if testing was performed by looking for Task tool calls where subagent_type is \"lint-runner\" or \"unit-test-runner\"\n5. If code changes were made but neither lint-runner nor unit-test-runner sub-agents were invoked, respond:\n   {\"decision\": \"block\", \"reason\": \"Code changes were detected but tests/linters have not been run. Please use the lint-runner and unit-test-runner sub-agents to validate your changes. These sub-agents use the run-tests and run-linters helper scripts to ensure deterministic, comprehensive coverage.\"}\n6. If no code changes were made, or if testing was performed, respond: {\"decision\": \"approve\"}\n\nRespond with valid JSON only, no other text.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "LS(/workspace/project/ai-playground)",
