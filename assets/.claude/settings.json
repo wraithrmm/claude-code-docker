@@ -37,6 +37,8 @@
       "Bash(/workspace/.claude/bin/git-diff.sh:*)",
       "Bash(/workspace/.claude/bin/run-linters:*)",
       "Bash(/workspace/.claude/bin/run-tests:*)",
+      "Bash(.claude/bin/run-linters:*)",
+      "Bash(.claude/bin/run-tests:*)",
       "Bash(npx playwright:*)",
       "Bash(npx @playwright/test:*)",
       "Bash(playwright:*)"
