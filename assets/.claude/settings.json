@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Evaluate whether Claude should be allowed to stop, or needs to run tests/linters first.\n\nContext is provided via stdin as JSON with stop_hook_active and transcript_path fields.\n\nIf stop_hook_active is true, Claude should be allowed to stop.\n\nOtherwise, read the transcript JSONL file at transcript_path and check:\n1. Were code changes made? Look for tool calls named Edit, Write, or MultiEdit.\n2. If code changes were made, was testing performed? Look for Task tool calls where subagent_type is lint-runner or unit-test-runner.\n\nClaude should be allowed to stop if: no code changes were made, OR testing was performed.\n\nClaude should NOT be allowed to stop if: code changes were made but neither lint-runner nor unit-test-runner sub-agents were invoked. The reason is: Code changes were detected but tests/linters have not been run. Please use the lint-runner and unit-test-runner sub-agents to validate your changes.",
+            "prompt": "Evaluate if Claude should stop: $ARGUMENTS. Check if test and linters need to be run and run them if they have not been. ALways use the test and lintign agents when doing so.",
             "timeout": 30
           }
         ]
