@@ -15,7 +15,7 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(**)",
+      "WebFetch(domain:*)",
       "LS(/workspace/project/ai-playground)",
       "LS(/workspace/project/ai-playground/**)",
       "Read(/workspace/project/ai-playground/**)",
