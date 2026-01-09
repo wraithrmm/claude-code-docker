@@ -104,9 +104,18 @@ RUN wget -O - https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/sha
     checkov && \
     ARCH=$(dpkg --print-architecture) && \
     TRIVY_ARCH=$([ "$ARCH" = "arm64" ] && echo "ARM64" || echo "64bit") && \
-    curl -sL "$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | grep -o -E -m 1 "https://.+?-linux-${ARCH}.tar.gz")" > terraform-docs.tgz && tar -xzf terraform-docs.tgz terraform-docs && rm terraform-docs.tgz && chmod +x terraform-docs && mv terraform-docs /usr/bin/ && \
-    curl -sL "$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | grep -o -E -m 1 "https://.+?_linux_${ARCH}.zip")" > tflint.zip && unzip tflint.zip && rm tflint.zip && mv tflint /usr/bin/ && \
-    curl -sL "$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | grep -o -E -i -m 1 "https://.+?/trivy_.+?_Linux-${TRIVY_ARCH}.tar.gz")" > trivy.tar.gz && tar -xzf trivy.tar.gz trivy && rm trivy.tar.gz && mv trivy /usr/bin && \
+    echo "=== Downloading terraform-docs for ${ARCH} ===" && \
+    TERRAFORM_DOCS_URL=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | jq -r ".assets[] | select(.name | test(\"linux-${ARCH}.tar.gz$\")) | .browser_download_url") && \
+    echo "terraform-docs URL: ${TERRAFORM_DOCS_URL}" && \
+    curl -fsSL "${TERRAFORM_DOCS_URL}" -o terraform-docs.tgz && tar -xzf terraform-docs.tgz terraform-docs && rm terraform-docs.tgz && chmod +x terraform-docs && mv terraform-docs /usr/bin/ && \
+    echo "=== Downloading tflint for ${ARCH} ===" && \
+    TFLINT_URL=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | jq -r ".assets[] | select(.name | test(\"linux_${ARCH}.zip$\")) | .browser_download_url") && \
+    echo "tflint URL: ${TFLINT_URL}" && \
+    curl -fsSL "${TFLINT_URL}" -o tflint.zip && unzip tflint.zip && rm tflint.zip && mv tflint /usr/bin/ && \
+    echo "=== Downloading trivy for ${TRIVY_ARCH} ===" && \
+    TRIVY_URL=$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r ".assets[] | select(.name | test(\"Linux-${TRIVY_ARCH}.tar.gz$\")) | .browser_download_url") && \
+    echo "trivy URL: ${TRIVY_URL}" && \
+    curl -fsSL "${TRIVY_URL}" -o trivy.tar.gz && tar -xzf trivy.tar.gz trivy && rm trivy.tar.gz && mv trivy /usr/bin && \
     npm install -g markdownlint-cli
 
 # Install Claude Code and dependencies
