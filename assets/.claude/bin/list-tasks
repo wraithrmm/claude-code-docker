@@ -1,0 +1,107 @@
+#!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
+# List all tasks (both global and project-specific) grouped by status
+
+set -e
+
+# Allow override for testing
+PLAYGROUND_DIR="${PLAYGROUND_DIR:-/workspace/project/ai-playground}"
+GLOBAL_TASK_DIR="$PLAYGROUND_DIR/tasks"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+# Function to display tasks in a directory
+display_tasks() {
+    local status="$1"
+    local task_dir="$2"
+    local prefix="$3"
+    local dir="$task_dir/$status"
+    
+    if [ ! -d "$dir" ]; then
+        return
+    fi
+    
+    local count=$(find "$dir" -name "*.md" -type f 2>/dev/null | wc -l)
+    
+    echo "## $status ($count tasks)"
+    echo ""
+    
+    if [ $count -eq 0 ]; then
+        echo "  No tasks"
+    else
+        for task_file in "$dir"/*.md; do
+            if [ -f "$task_file" ]; then
+                local task_name=$(basename "$task_file" .md)
+                local created=$(grep "^Created:" "$task_file" 2>/dev/null | cut -d' ' -f2-)
+                if [ -z "$created" ]; then
+                    created="Unknown"
+                fi
+                local template=$(grep "^PRP-Template:" "$task_file" 2>/dev/null | cut -d' ' -f2- || echo "none")
+                
+                echo "  - ${prefix}$task_name"
+                echo "    Created: $created"
+                if [ "$template" != "none" ] && [ "$template" != "" ]; then
+                    echo "    Template: $template"
+                fi
+            fi
+        done
+    fi
+    echo ""
+}
+
+echo "# Task List (All Tasks)"
+echo "========================"
+echo ""
+
+# Display global tasks for each status
+echo "# Global Tasks"
+echo "--------------"
+echo ""
+
+# Ensure global task directories exist for consistent output
+mkdir -p "$GLOBAL_TASK_DIR/planning"
+mkdir -p "$GLOBAL_TASK_DIR/approved"
+mkdir -p "$GLOBAL_TASK_DIR/in-progress"
+mkdir -p "$GLOBAL_TASK_DIR/completed"
+
+for status in planning approved in-progress completed; do
+    display_tasks "$status" "$GLOBAL_TASK_DIR" ""
+done
+
+# Display project-specific tasks
+echo "# Project Tasks"
+echo "---------------"
+echo ""
+
+if [ -d "$PROJECTS_DIR" ]; then
+    for project_dir in "$PROJECTS_DIR"/*; do
+        if [ -d "$project_dir" ] && [ -d "$project_dir/tasks" ]; then
+            project_name=$(basename "$project_dir")
+            echo "## Project: $project_name"
+            echo ""
+            
+            for status in planning approved in-progress completed; do
+                display_tasks "$status" "$project_dir/tasks" "[$project_name] "
+            done
+        fi
+    done
+fi
+
+# Summary
+global_tasks=$(find "$GLOBAL_TASK_DIR" -name "*.md" -type f 2>/dev/null | wc -l)
+project_tasks=0
+
+if [ -d "$PROJECTS_DIR" ]; then
+    project_tasks=$(find "$PROJECTS_DIR" -path "*/tasks/*" -name "*.md" -type f 2>/dev/null | wc -l)
+fi
+
+total_tasks=$((global_tasks + project_tasks))
+
+echo "# Summary"
+echo "---------"
+echo "Global tasks: $global_tasks"
+echo "Project tasks: $project_tasks"
+echo "Total tasks: $total_tasks"

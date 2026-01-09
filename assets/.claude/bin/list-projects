@@ -1,0 +1,70 @@
+#!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
+# List all projects in ai-playground with formatted output
+
+PLAYGROUND_DIR="/workspace/project/ai-playground"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+# Check if playground directory exists
+if [ ! -d "$PROJECTS_DIR" ]; then
+    echo "No projects directory found"
+    echo "Run /init-playground to set up the ai-playground structure"
+    exit 0
+fi
+
+# Find all project directories and store in array for consistent numbering
+readarray -t projects < <(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+
+# Check if any projects exist
+if [ ${#projects[@]} -eq 0 ]; then
+    echo "No projects found"
+    echo "Use /create-project <project-name> to create a new project"
+    exit 0
+fi
+
+echo "Projects in ai-playground:"
+echo "=========================="
+
+# Process each project with numbering
+for i in "${!projects[@]}"; do
+    project_dir="${projects[$i]}"
+    project_name=$(basename "$project_dir")
+    project_num=$((i+1))
+    
+    echo ""
+    echo "$project_num. 📁 $project_name"
+    
+    # Check if status.json exists and read it
+    if [ -f "$project_dir/status.json" ]; then
+        # Read status.json content
+        if [ -r "$project_dir/status.json" ]; then
+            # Parse JSON manually (for compatibility without jq)
+            status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$project_dir/status.json" | sed 's/.*: *"\([^"]*\)".*/\1/')
+            progress=$(grep -o '"completion_percent"[[:space:]]*:[[:space:]]*[0-9]*' "$project_dir/status.json" | sed 's/.*: *//')
+            created=$(grep -o '"created"[[:space:]]*:[[:space:]]*"[^"]*"' "$project_dir/status.json" | sed 's/.*: *"\([^"]*\)".*/\1/')
+            updated=$(grep -o '"last_updated"[[:space:]]*:[[:space:]]*"[^"]*"' "$project_dir/status.json" | sed 's/.*: *"\([^"]*\)".*/\1/')
+            summary=$(grep -o '"summary"[[:space:]]*:[[:space:]]*"[^"]*"' "$project_dir/status.json" | sed 's/.*: *"\([^"]*\)".*/\1/')
+            
+            # Display parsed information
+            [ -n "$status" ] && echo "   Status: $status"
+            [ -n "$progress" ] && echo "   Progress: $progress%"
+            [ -n "$created" ] && echo "   Created: $created"
+            [ -n "$updated" ] && echo "   Last updated: $updated"
+            [ -n "$summary" ] && echo "   Summary: $summary"
+        else
+            echo "   ⚠️  Cannot read status.json"
+        fi
+    else
+        echo "   ⚠️  No status.json file"
+    fi
+done
+
+echo ""
+echo "=========================="
+echo "Total projects: ${#projects[@]}"
+echo ""
+echo "Use '/continue-project <project-name>' or '/continue-project <number>' to resume a project"

@@ -1,0 +1,227 @@
+version: 2.1
+
+parameters:
+  docker_repo_url:
+    type: string
+    default: "wraithrmm/claude-code-docker"
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - run:
+          name: Install BATS
+          command: |
+            sudo npm install -g bats
+      - run:
+          name: Run All Tests
+          command: |
+            # Make run-tests.sh executable
+            chmod +x run-tests.sh
+            
+            # Run all tests
+            ./run-tests.sh
+
+  build:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Login to Docker Hub
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      - run:
+          name: Set up QEMU for multi-architecture builds
+          command: |
+            docker run --privileged --rm tonistiigi/binfmt --install all
+      - run:
+          name: Set up Docker Buildx
+          command: |
+            docker buildx create --name multiarch --driver docker-container --use
+            docker buildx inspect --bootstrap
+      - run:
+          name: Build AMD64 Image for Scanning
+          command: |
+            # Create tag from branch and commit
+            TAG=$(echo "<< pipeline.git.branch >>-<< pipeline.git.revision >>" | tr / -)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+
+            echo "Building amd64 image for scanning: ${IMAGE_NAME}"
+            docker buildx build \
+              --platform linux/amd64 \
+              --build-arg TAGGED_VERSION=${TAG} \
+              --tag ${IMAGE_NAME} \
+              --load \
+              .
+
+            echo "Built amd64 image successfully"
+            docker images | grep "<< pipeline.parameters.docker_repo_url >>"
+      - run:
+          name: Save Docker Image
+          command: |
+            TAG=$(echo "<< pipeline.git.branch >>-<< pipeline.git.revision >>" | tr / -)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+
+            echo "Saving image to workspace"
+            mkdir -p /tmp/workspace
+            docker save -o /tmp/workspace/image.tar ${IMAGE_NAME}
+            echo "${TAG}" > /tmp/workspace/tag.txt
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - image.tar
+            - tag.txt
+
+  scan:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Load Docker Image
+          command: |
+            echo "Loading image from workspace"
+            docker load -i /tmp/workspace/image.tar
+      - run:
+          name: Install Trivy
+          command: |
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ~/bin/
+      - run:
+          name: Scan the Docker image for vulnerabilities
+          command: |
+            TAG=$(cat /tmp/workspace/tag.txt)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+
+            extra_options=""
+
+            # Check for trivyignore file
+            if [[ -f .trivyignore.yml ]]; then
+              extra_options="${extra_options} --ignorefile .trivyignore.yml"
+            fi
+
+            # Run Trivy image scan
+            ~/bin/trivy image \
+              --exit-code 1 \
+              --ignore-unfixed \
+              --scanners vuln,misconfig \
+              --severity HIGH,CRITICAL \
+              ${extra_options} \
+              --show-suppressed \
+              ${IMAGE_NAME}
+
+            # Run Trivy config scan on current directory
+            ~/bin/trivy config \
+              --exit-code 1 \
+              --severity HIGH,CRITICAL \
+              ${extra_options} \
+              ./
+      - run:
+          name: Install Hadolint
+          command: |
+            # Download Hadolint directly (using fixed version to avoid jq dependency)
+            HADOLINT_VERSION="v2.12.0"
+            wget -O ~/bin/hadolint https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64
+            chmod +x ~/bin/hadolint
+      - run:
+          name: Lint the Docker image
+          command: |
+            ~/bin/hadolint \
+              --failure-threshold error \
+              Dockerfile
+
+  ok-to-publish:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - run:
+          name: All dependencies passed
+          command: |
+            echo "All required tests and checks have passed successfully."
+            echo "Ready to proceed with publishing."
+
+  publish:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Login to Docker Hub
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      - run:
+          name: Set up QEMU for multi-architecture builds
+          command: |
+            docker run --privileged --rm tonistiigi/binfmt --install all
+      - run:
+          name: Set up Docker Buildx
+          command: |
+            docker buildx create --name multiarch --driver docker-container --use
+            docker buildx inspect --bootstrap
+      - run:
+          name: Build and Push Multi-Architecture Image
+          command: |
+            TAG=$(cat /tmp/workspace/tag.txt)
+            IMAGE_NAME="<< pipeline.parameters.docker_repo_url >>:${TAG}"
+
+            echo "Building and pushing multi-arch image: ${IMAGE_NAME}"
+
+            # Build tags list
+            TAGS="--tag ${IMAGE_NAME}"
+
+            # Also tag as 'latest' if on master/main branch
+            if [[ "<< pipeline.git.branch >>" == "master" || "<< pipeline.git.branch >>" == "main" ]]; then
+              LATEST_IMAGE="<< pipeline.parameters.docker_repo_url >>:latest"
+              TAGS="${TAGS} --tag ${LATEST_IMAGE}"
+              echo "Will also push as: ${LATEST_IMAGE}"
+            fi
+
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              --build-arg TAGGED_VERSION=${TAG} \
+              ${TAGS} \
+              --push \
+              .
+
+            echo "Successfully pushed multi-arch image"
+
+workflows:
+  build_and_push:
+    jobs:
+      - test:
+          context:
+            - dockerhub-credentials
+      - build:
+          context:
+            - dockerhub-credentials
+      - scan:
+          requires:
+            - build
+          context:
+            - dockerhub-credentials
+      - ok-to-publish:
+          requires:
+            - test
+            - scan
+      - publish:
+          requires:
+            - ok-to-publish
+          context:
+            - dockerhub-credentials
+          filters:
+            branches:
+              only: 
+                - master
+                - main

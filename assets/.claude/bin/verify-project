@@ -1,0 +1,49 @@
+#!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
+# Verify project structure and required files
+
+PLAYGROUND_DIR="/workspace/project/ai-playground"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+if [ -z "$1" ]; then
+    echo "Error: Project name required"
+    echo "Usage: verify-project <project-name>"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+PROJECT_DIR="$PROJECTS_DIR/$PROJECT_NAME"
+
+# Check if project directory exists
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Error: Project directory not found: $PROJECT_DIR"
+    exit 1
+fi
+
+# Check for required files
+REQUIRED_FILES=("plan.md" "progress.md" "status.json" "notes.md")
+MISSING_FILES=()
+
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ ! -f "$PROJECT_DIR/$file" ]; then
+        MISSING_FILES+=("$file")
+    else
+        echo "  ✅ $file exists"
+    fi
+done
+
+# Report missing files
+if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "  ⚠️  Missing required files:"
+    for file in "${MISSING_FILES[@]}"; do
+        echo "     - $file"
+    done
+fi
+
+# Return success even if files are missing (just reporting)
+exit 0

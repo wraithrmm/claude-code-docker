@@ -1,0 +1,22 @@
+#!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
+# Count projects in ai-playground
+
+PLAYGROUND_DIR="/workspace/project/ai-playground"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+if [ ! -d "$PROJECTS_DIR" ]; then
+    echo "0"
+    exit 0
+fi
+
+# Count directories at depth 1
+count=$(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+
+echo "$count"
+
+exit 0

@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:*)",
+      "LS(/workspace/project/ai-playground)",
+      "LS(/workspace/project/ai-playground/**)",
+      "Read(/workspace/project/ai-playground/**)",
+      "Write(/workspace/project/ai-playground/**)",
+      "Edit(/workspace/project/ai-playground/**)",
+      "MultiEdit(/workspace/project/ai-playground/**)",
+      "Bash(/workspace/.claude/bin/init-playground:*)",
+      "Bash(/workspace/.claude/bin/list-projects:*)",
+      "Bash(/workspace/.claude/bin/continue-project:*)",
+      "Bash(/workspace/.claude/bin/create-project:*)",
+      "Bash(/workspace/.claude/bin/verify-project:*)",
+      "Bash(/workspace/.claude/bin/count-projects:*)",
+      "Bash(/workspace/.claude/bin/create-task:*)",
+      "Bash(/workspace/.claude/bin/list-tasks:*)",
+      "Bash(/workspace/.claude/bin/move-task:*)",
+      "Bash(/workspace/.claude/bin/create-project-task:*)",
+      "Bash(/workspace/.claude/bin/list-project-tasks:*)",
+      "Bash(/workspace/.claude/bin/move-project-task:*)",
+      "Bash(/workspace/.claude/bin/git-diff.sh:*)",
+      "Bash(/workspace/.claude/bin/run-linters:*)",
+      "Bash(/workspace/.claude/bin/run-tests:*)",
+      "Bash(.claude/bin/run-linters:*)",
+      "Bash(.claude/bin/run-tests:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npx @playwright/test:*)",
+      "Bash(playwright:*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env*)",
+      "Read(**/dotenv)",
+      "Read(**/*dotenv)",
+      "Read(**/env)",
+      "Read(**/*sites*.ini*)"
+    ]
+  },
+  "env": {
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_BUG_COMMAND": "1",
+    "DISABLE_ERROR_REPORTING": "1"
+  }
+}

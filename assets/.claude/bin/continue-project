@@ -1,0 +1,92 @@
+#!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
+# Prepare project information for continuing work
+
+PLAYGROUND_DIR="/workspace/project/ai-playground"
+PROJECTS_DIR="$PLAYGROUND_DIR/projects"
+
+# Check if project name was provided
+if [ -z "$1" ]; then
+    echo "Error: Project name or number required"
+    echo "Usage: continue-project <project-name|number>"
+    exit 1
+fi
+
+PROJECT_IDENTIFIER="$1"
+PROJECT_NAME=""
+PROJECT_DIR=""
+
+# Check if identifier is a number
+if [[ "$PROJECT_IDENTIFIER" =~ ^[0-9]+$ ]]; then
+    # It's a number, find the corresponding project
+    readarray -t projects < <(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+    
+    # Check if number is valid
+    if [ "$PROJECT_IDENTIFIER" -lt 1 ] || [ "$PROJECT_IDENTIFIER" -gt "${#projects[@]}" ]; then
+        echo "Error: Invalid project number '$PROJECT_IDENTIFIER'"
+        echo "Valid range: 1-${#projects[@]}"
+        exit 1
+    fi
+    
+    # Get project directory by index (subtract 1 for zero-based array)
+    PROJECT_DIR="${projects[$((PROJECT_IDENTIFIER-1))]}"
+    PROJECT_NAME=$(basename "$PROJECT_DIR")
+else
+    # It's a name, use it directly
+    PROJECT_NAME="$PROJECT_IDENTIFIER"
+    PROJECT_DIR="$PROJECTS_DIR/$PROJECT_NAME"
+fi
+
+# Check if project directory exists
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Error: Project '$PROJECT_NAME' not found"
+    echo ""
+    echo "Available projects:"
+    readarray -t projects < <(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+    for i in "${!projects[@]}"; do
+        echo "$((i+1)). $(basename "${projects[$i]}")"
+    done
+    exit 1
+fi
+
+echo "📋 Preparing to resume project: $PROJECT_NAME"
+echo "================================"
+
+# Verify project structure
+echo "Checking project structure..."
+/workspace/.claude/bin/verify-project "$PROJECT_NAME"
+
+# Display current status
+if [ -f "$PROJECT_DIR/status.json" ]; then
+    echo ""
+    echo "Current Status:"
+    # Parse status information
+    status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$PROJECT_DIR/status.json" | sed 's/.*: *"\([^"]*\)".*/\1/')
+    progress=$(grep -o '"completion_percent"[[:space:]]*:[[:space:]]*[0-9]*' "$PROJECT_DIR/status.json" | sed 's/.*: *//')
+    [ -n "$status" ] && echo "  Status: $status"
+    [ -n "$progress" ] && echo "  Progress: $progress%"
+fi
+
+# Update last_updated timestamp
+if [ -f "$PROJECT_DIR/status.json" ]; then
+    current_time=$(date '+%Y-%m-%d %H:%M:%S')
+    echo ""
+    echo "Updating resume timestamp..."
+    # This is a simple approach - in practice, Claude will use Edit tool for proper JSON update
+    echo "Project resumed at: $current_time"
+fi
+
+# Display file paths for reading
+echo ""
+echo "Project files ready for reading:"
+echo "  Read(\"$PROJECT_DIR/plan.md\")"
+echo "  Read(\"$PROJECT_DIR/progress.md\")"
+echo "  Read(\"$PROJECT_DIR/status.json\")"
+echo "  Read(\"$PROJECT_DIR/notes.md\")"
+
+echo ""
+echo "✅ Project $PROJECT_NAME is ready to continue"

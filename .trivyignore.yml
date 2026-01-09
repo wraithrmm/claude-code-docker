@@ -1,0 +1,33 @@
+vulnerabilities:
+  # Go binary vulnerabilities - cannot be patched, need upstream fixes
+  # These are TEMPORARY suppressions until upstream projects release versions
+  # compiled with patched Go stdlib (requires Go 1.24.11+ or 1.25.5+)
+  #
+  # terraform binary - HashiCorp go-getter arbitrary file read vulnerability
+  - id: CVE-2025-8959
+    statement: Cannot patch compiled Go binary, using latest available version
+  # terraform binary - database/sql Postgres race condition
+  - id: CVE-2025-47907
+    statement: Cannot patch compiled Go binary, using latest available version
+  # terraform-docs binary - crypto/x509 ExtKeyUsageAny policy validation issue
+  - id: CVE-2025-22874
+    statement: Cannot patch compiled Go binary, using latest available version
+  # Go stdlib HostnameError.Error() vulnerability - affects terraform, terraform-docs, tflint, trivy
+  - id: CVE-2025-61729
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.5+
+  # Go stdlib archive/tar unbounded allocation - affects terraform-docs
+  - id: CVE-2025-58183
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.11+
+  # Go stdlib HTTP headers limit - affects terraform-docs
+  - id: CVE-2025-58186
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.11+
+  # Go stdlib name constraint checking - affects terraform-docs
+  - id: CVE-2025-58187
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.11+
+  # sigstore timestamp-authority vulnerability - affects tflint, trivy
+  - id: CVE-2025-66564
+    statement: Cannot patch compiled Go binary, awaiting upstream release with fixed sigstore lib
+
+misconfigurations:
+  # Base image so root user is ok
+  - id: AVD-DS-0002

@@ -1,0 +1,66 @@
+#!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
+# Create a new task in the planning directory
+
+set -e
+
+# Check if task name is provided
+if [ -z "$1" ]; then
+    echo "Error: Task name is required"
+    echo "Usage: create-task <task-name>"
+    exit 1
+fi
+
+TASK_NAME="$1"
+TASK_DIR="/workspace/project/ai-playground/tasks"
+PLANNING_DIR="$TASK_DIR/planning"
+TASK_FILE="$PLANNING_DIR/${TASK_NAME}.md"
+
+# Create directories if they don't exist
+mkdir -p "$PLANNING_DIR"
+mkdir -p "$TASK_DIR/approved"
+mkdir -p "$TASK_DIR/in-progress"
+mkdir -p "$TASK_DIR/completed"
+
+# Check if task already exists in any status directory
+for status in planning approved in-progress completed; do
+    if [ -f "$TASK_DIR/$status/${TASK_NAME}.md" ]; then
+        echo "Error: Task '$TASK_NAME' already exists in $status directory"
+        exit 1
+    fi
+done
+
+# Create task file
+cat > "$TASK_FILE" << EOF
+# Task: ${TASK_NAME}
+Status: planning
+Created: $(date '+%Y-%m-%d %H:%M:%S')
+Updated: $(date '+%Y-%m-%d %H:%M:%S')
+PRP-Template: none
+
+## Project Intention
+[Clear description of what needs to be done]
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+
+## Implementation Approach
+[Describe the approach or reference a PRP template]
+
+## Technical Details
+[Any specific technical requirements]
+
+## Notes
+[Any additional context]
+EOF
+
+echo "Task created successfully: $TASK_FILE"
+echo ""
+echo "Next steps:"
+echo "1. Edit the task file to add details"
+echo "2. When ready, use 'move-task $TASK_NAME approved' to approve the task"

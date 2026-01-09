@@ -1,0 +1,5 @@
+{
+  // Disable line length warnings - documentation often requires longer lines
+  // for readability, especially for command examples and URLs
+  "MD013": false
+}

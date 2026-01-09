@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp", "--browser", "firefox", "--output-dir", "/Users/claude-code/screenshots"]
+    }
+  }
+}
