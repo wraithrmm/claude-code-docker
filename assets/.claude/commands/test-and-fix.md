@@ -4,7 +4,7 @@
 
 ## Goals
 
-To run the tests for this project using the methods described in the project claude.md file and fix any failures.
+To run the test and linter agents for this project using the methods described in the project claude.md file and fix any failures.
 
 ## Workflow
 
