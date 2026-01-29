@@ -21,20 +21,13 @@ Build the Docker image:
 docker build -f Dockerfile -t claude-code-docker:local . --build-arg TAGGED_VERSION=local
 ```
 
-Run the container:
+Run the container using the launcher script:
 
 ```bash
-docker run -it --rm \
-  -v $(pwd):/workspace/project \
-  -v ~/.claude.json:/opt/user-claude/.claude.json \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v ~/.claude:/opt/user-claude/.claude \
-  -v /Users/claude-code:/Users/claude-code \
-  -e HOST_PWD=$(pwd) \
-  -e HOST_USER=$(whoami) \
-  claude-code-docker:local \
-  /bin/bash
+./bin/run-claude-code
 ```
+
+See [bin/README.md](bin/README.md) for options (`--host-network`, `--dry-run`, etc.).
 
 Note: The container includes pre-configured MCP servers (like Playwright) in `/workspace/.mcp.json`. If your project has a `.claude/.mcp.json` file, it will be automatically merged with the container's MCP configuration on startup, with project servers taking precedence.
 
@@ -202,19 +195,10 @@ The container includes Playwright for browser automation testing. The setup incl
 
 ### Volume Mounting
 
-The container requires mounting the `/Users/claude-code` directory:
+The launcher script automatically mounts the required directories including the workspace directory (`/Users/claude-code` on macOS, `/home/claude-code` on Linux):
 
 ```bash
-docker run -it --rm \
-  -v $(pwd):/workspace/project \
-  -v ~/.claude.json:/opt/user-claude/.claude.json \  # Your API key only
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v ~/.claude:/opt/user-claude/.claude \
-  -v /Users/claude-code:/Users/claude-code \
-  -e HOST_PWD=$(pwd) \
-  -e HOST_USER=$(whoami) \
-  wraithrmm/claude-code-docker:latest \
-  /bin/bash
+./bin/run-claude-code
 ```
 
 Note: MCP servers (including Playwright) are pre-configured in the container via `/workspace/.mcp.json`. Projects can add additional MCP servers via `.claude/.mcp.json`.

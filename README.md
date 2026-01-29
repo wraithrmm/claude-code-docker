@@ -48,91 +48,51 @@ Get Claude Code running on your project in 60 seconds:
 
 1. **Prerequisites**: Docker installed, Claude subscription or API key
 
-2. **One-time setup**:
-
-   ```bash
-   mkdir -p ~/.claude /Users/claude-code
-   ```
-
-3. **Run on your project**:
+2. **Run on your project**:
 
    ```bash
    cd /path/to/your/project
-   docker run -it --rm \
-     -v $(pwd):/workspace/project \
-     -v ~/.claude.json:/opt/user-claude/.claude.json \
-     -v ~/.claude:/opt/user-claude/.claude \
-     -v /var/run/docker.sock:/var/run/docker.sock \
-     -v /Users/claude-code/:/Users/claude-code/ \
-     -e HOST_PWD=$(pwd) \
-     -e HOST_USER=$(whoami) \
-     wraithrmm/claude-code-docker:latest
+   ./bin/run-claude-code
    ```
 
-4. **Inside the container**:
+   The script automatically creates any missing dependencies (`~/.claude.json`, `~/.claude/`, workspace directory).
+
+3. **Inside the container**:
 
    ```bash
    claude  # Start interactive session
    ```
 
+See [bin/README.md](bin/README.md) for all available options (`--host-network`, `--dry-run`, etc.).
+
 ## Initial Setup
 
-1. **Create required directories**
+The launcher script (`./bin/run-claude-code`) automatically creates required directories. For authentication (first time only):
 
-   ```bash
-   mkdir -p ~/.claude /Users/claude-code
-   ```
-
-2. **Authentication** (first time only)
-
-   When you first run `claude` inside the container, you'll be prompted to authenticate:
-
-   - **Claude subscription**: Follow the browser-based login flow
-   - **API key**: Enter your API key when prompted, or pre-create `~/.claude.json`:
-     ```bash
-     echo '{"apiKey": "your-api-key-here"}' > ~/.claude.json
-     ```
+- **Claude subscription**: Follow the browser-based login flow when prompted
+- **API key**: Enter your API key when prompted, or pre-create `~/.claude.json`:
+  ```bash
+  echo '{"apiKey": "your-api-key-here"}' > ~/.claude.json
+  ```
 
 ## Running Claude Code on Your Project
 
-1. **Navigate to your project directory**
+1. **Navigate to your project directory and launch**
 
    ```bash
    cd /path/to/your/project
+   ./bin/run-claude-code
    ```
 
-2. **Run the container with your codebase mounted**
+   **Common options:**
 
    ```bash
-   docker run -it --rm \
-     -v $(pwd):/workspace/project \
-     -v ~/.claude.json:/opt/user-claude/.claude.json \
-     -v ~/.claude:/opt/user-claude/.claude \
-     -v /var/run/docker.sock:/var/run/docker.sock \
-     -v /Users/claude-code/:/Users/claude-code/ \
-     -e HOST_PWD=$(pwd) \
-     -e HOST_USER=$(whoami) \
-     wraithrmm/claude-code-docker:latest \
-     /bin/bash
+   ./bin/run-claude-code --host-network   # Use host networking (for local services)
+   ./bin/run-claude-code --no-docker-sock # Without Docker-in-Docker capability
+   ./bin/run-claude-code --dry-run        # Preview the docker command
    ```
 
-   **To run as root (when needed):**
-
-   ```bash
-   docker run -it --rm \
-     -v $(pwd):/workspace/project \
-     -v ~/.claude.json:/opt/user-claude/.claude.json \
-     -v ~/.claude:/opt/user-claude/.claude \
-     -v /var/run/docker.sock:/var/run/docker.sock \
-     -v /Users/claude-code/:/Users/claude-code/ \
-     -e HOST_PWD=$(pwd) \
-     -e HOST_USER=$(whoami) \
-     -e RUN_AS_ROOT=true \
-     wraithrmm/claude-code-docker:latest \
-     /bin/bash
-   ```
-
-3. **Inside the container, use Claude Code**
+2. **Inside the container, use Claude Code**
 
    ```bash
    # Verify Claude Code is available
@@ -218,39 +178,23 @@ By default, the container automatically:
 
 ## Running Multiple Instances
 
-To run Claude Code on multiple codebases simultaneously:
+To run Claude Code on multiple codebases simultaneously, open separate terminals:
 
-1. **Terminal 1 - Project A**
+**Terminal 1 - Project A:**
 
-   ```bash
-   cd /path/to/project-a
-   docker run -it --rm --name claude-project-a \
-     -v $(pwd):/workspace/project \
-     -v ~/.claude.json:/opt/user-claude/.claude.json \
-     -v ~/.claude:/opt/user-claude/.claude \
-     -v /var/run/docker.sock:/var/run/docker.sock \
-     -v /Users/claude-code/:/Users/claude-code/ \
-     -e HOST_PWD=$(pwd) \
-     -e HOST_USER=$(whoami) \
-     wraithrmm/claude-code-docker:latest \
-     /bin/bash
-   ```
+```bash
+cd /path/to/project-a
+./bin/run-claude-code
+```
 
-2. **Terminal 2 - Project B**
+**Terminal 2 - Project B:**
 
-   ```bash
-   cd /path/to/project-b
-   docker run -it --rm --name claude-project-b \
-     -v $(pwd):/workspace/project \
-     -v ~/.claude.json:/opt/user-claude/.claude.json \
-     -v ~/.claude:/opt/user-claude/.claude \
-     -v /var/run/docker.sock:/var/run/docker.sock \
-     -v /Users/claude-code/:/Users/claude-code/ \
-     -e HOST_PWD=$(pwd) \
-     -e HOST_USER=$(whoami) \
-     wraithrmm/claude-code-docker:latest \
-     /bin/bash
-   ```
+```bash
+cd /path/to/project-b
+./bin/run-claude-code
+```
+
+Each instance runs independently with its own workspace mounted.
 
 ## Customizing Claude Code Behavior
 
