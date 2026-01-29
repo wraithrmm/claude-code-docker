@@ -1,0 +1,244 @@
+#!/bin/bash
+#
+# run-claude-code - Launch Claude Code in Docker with automatic dependency management
+#
+# Usage: ./bin/run-claude-code [OPTIONS]
+#
+# Options:
+#   --host-network    Use host networking instead of bridge (default: bridge)
+#   --no-docker-sock  Don't mount Docker socket
+#   --dry-run         Print the docker command without executing
+#   --help            Show this help message
+#
+
+set -e
+
+# Configuration
+IMAGE="wraithrmm/claude-code-docker:latest"
+CLAUDE_JSON="$HOME/.claude.json"
+CLAUDE_DIR="$HOME/.claude"
+
+# Detect OS and set workspace path
+detect_os() {
+    case "$(uname -s)" in
+        Darwin)
+            OS="macos"
+            WORKSPACE_DIR="/Users/claude-code"
+            ;;
+        Linux)
+            OS="linux"
+            WORKSPACE_DIR="/home/claude-code"
+            ;;
+        *)
+            echo "Error: Unsupported operating system: $(uname -s)"
+            exit 1
+            ;;
+    esac
+}
+
+# Check if Docker is installed and running
+check_docker() {
+    if ! command -v docker &> /dev/null; then
+        echo "Error: Docker is not installed."
+        echo ""
+        echo "Installation tips:"
+        case "$OS" in
+            macos)
+                echo "  macOS:"
+                echo "    1. Download Docker Desktop from https://www.docker.com/products/docker-desktop"
+                echo "    2. Or install via Homebrew: brew install --cask docker"
+                ;;
+            linux)
+                echo "  Linux (Ubuntu/Debian):"
+                echo "    curl -fsSL https://get.docker.com | sh"
+                echo "    sudo usermod -aG docker \$USER"
+                echo "    # Log out and back in for group changes to take effect"
+                echo ""
+                echo "  Linux (Fedora):"
+                echo "    sudo dnf install docker"
+                echo "    sudo systemctl start docker"
+                echo "    sudo usermod -aG docker \$USER"
+                ;;
+        esac
+        exit 1
+    fi
+
+    if ! docker info &> /dev/null; then
+        echo "Error: Docker is installed but not running."
+        echo ""
+        case "$OS" in
+            macos)
+                echo "Please start Docker Desktop and try again."
+                ;;
+            linux)
+                echo "Try: sudo systemctl start docker"
+                ;;
+        esac
+        exit 1
+    fi
+}
+
+# Ensure a file exists, create with default content if not
+ensure_file() {
+    local file="$1"
+    local default_content="$2"
+    local description="$3"
+
+    if [[ ! -f "$file" ]]; then
+        echo "Creating $description: $file"
+        echo "$default_content" > "$file"
+        chmod 600 "$file"
+    fi
+}
+
+# Ensure a directory exists, create if not
+ensure_dir() {
+    local dir="$1"
+    local description="$2"
+    local needs_sudo="$3"
+
+    if [[ ! -d "$dir" ]]; then
+        echo "Creating $description: $dir"
+        if [[ "$needs_sudo" == "true" ]]; then
+            if sudo mkdir -p "$dir" 2>/dev/null; then
+                sudo chown "$(whoami)" "$dir"
+                sudo chmod 755 "$dir"
+            else
+                echo "Warning: Could not create $dir (permission denied)"
+                echo "You may need to create it manually: sudo mkdir -p $dir && sudo chown \$(whoami) $dir"
+                return 1
+            fi
+        else
+            mkdir -p "$dir"
+            chmod 755 "$dir"
+        fi
+    fi
+}
+
+# Show help message
+show_help() {
+    cat << 'EOF'
+run-claude-code - Launch Claude Code in Docker
+
+Usage: ./bin/run-claude-code [OPTIONS]
+
+Options:
+  --host-network    Use host networking instead of bridge (default: bridge)
+  --no-docker-sock  Don't mount the Docker socket into the container
+  --dry-run         Print the docker command without executing
+  --help            Show this help message
+
+Dependencies (auto-created if missing):
+  ~/.claude.json    Claude authentication/configuration
+  ~/.claude/        Claude persistent state directory
+  /Users/claude-code/ (macOS) or /home/claude-code/ (Linux)
+                    Shared workspace directory
+
+Examples:
+  ./bin/run-claude-code                  # Run with default settings (bridge network)
+  ./bin/run-claude-code --host-network   # Run with host networking
+  ./bin/run-claude-code --dry-run        # Show command without running
+
+EOF
+}
+
+# Parse command line arguments
+parse_args() {
+    USE_HOST_NETWORK=false
+    MOUNT_DOCKER_SOCK=true
+    DRY_RUN=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --host-network)
+                USE_HOST_NETWORK=true
+                shift
+                ;;
+            --no-docker-sock)
+                MOUNT_DOCKER_SOCK=false
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                echo "Unknown option: $1"
+                echo "Use --help for usage information."
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Build and run the docker command
+run_container() {
+    local cmd="docker run -it --rm"
+
+    # Networking
+    if [[ "$USE_HOST_NETWORK" == "true" ]]; then
+        cmd+=" --network host"
+    fi
+
+    # Volume mounts
+    cmd+=" -v \"$(pwd)\":/workspace/project"
+    cmd+=" -v \"$CLAUDE_JSON\":/root/.claude.json"
+    cmd+=" -v \"$CLAUDE_DIR\":/root/.claude"
+
+    if [[ "$MOUNT_DOCKER_SOCK" == "true" ]]; then
+        cmd+=" -v /var/run/docker.sock:/var/run/docker.sock"
+    fi
+
+    if [[ "$WORKSPACE_AVAILABLE" == "true" ]]; then
+        cmd+=" -v \"$WORKSPACE_DIR\":\"$WORKSPACE_DIR\""
+    fi
+
+    # Environment variables
+    cmd+=" -e HOST_PWD=\"$(pwd)\""
+    cmd+=" -e HOST_USER=\"$(whoami)\""
+    cmd+=" -e RUN_AS_ROOT=true"
+
+    # Image and entrypoint
+    cmd+=" $IMAGE"
+    cmd+=" /bin/bash"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "Would execute:"
+        echo ""
+        echo "$cmd"
+        echo ""
+    else
+        echo "Starting Claude Code container..."
+        eval "$cmd"
+    fi
+}
+
+# Main execution
+main() {
+    parse_args "$@"
+    detect_os
+
+    echo "Checking dependencies..."
+    check_docker
+
+    # Ensure all dependencies exist
+    ensure_file "$CLAUDE_JSON" "{}" "Claude config file"
+    ensure_dir "$CLAUDE_DIR" "Claude state directory" "false"
+
+    # Workspace dir may need elevated permissions - don't fail if it can't be created
+    WORKSPACE_AVAILABLE=true
+    if [[ ! -d "$WORKSPACE_DIR" ]]; then
+        if ! ensure_dir "$WORKSPACE_DIR" "Claude workspace directory" "true"; then
+            WORKSPACE_AVAILABLE=false
+        fi
+    fi
+
+    echo ""
+    run_container
+}
+
+main "$@"
