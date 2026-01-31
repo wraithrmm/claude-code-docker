@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+# claude-unsafe - Run Claude Code as non-root to enable --dangerously-skip-permissions
+#
+# This script creates a dedicated non-root user and runs Claude via gosu.
+# Use this when you need YOLO mode (--dangerously-skip-permissions).
+#
+# Usage:
+#   claude-unsafe [claude arguments...]
+#   claude-unsafe --dangerously-skip-permissions -p "do the thing"
+#
+
+set -e
+
+CLAUDE_USER="claudeuser"
+CLAUDE_UID=1000
+CLAUDE_GID=1000
+
+# Only do user setup if running as root
+if [[ $(id -u) -eq 0 ]]; then
+    # Create user if it doesn't exist
+    if ! id -u "$CLAUDE_USER" >/dev/null 2>&1; then
+        groupadd -g "$CLAUDE_GID" "$CLAUDE_USER" 2>/dev/null || true
+        useradd -u "$CLAUDE_UID" -g "$CLAUDE_GID" -G docker -m -s /bin/bash "$CLAUDE_USER" 2>/dev/null || true
+    fi
+
+    # Make root's Claude config accessible AND writable by other users
+    # Required for symlinks to work across user boundaries
+    # Claude needs write access to save session state, settings, etc.
+    chmod 711 /root 2>/dev/null || true
+    chmod 666 /root/.claude.json 2>/dev/null || true
+    chmod -R 777 /root/.claude 2>/dev/null || true
+
+    # Link Claude configuration from root
+    mkdir -p "/home/$CLAUDE_USER"
+    ln -sf /root/.claude.json "/home/$CLAUDE_USER/.claude.json" 2>/dev/null || true
+    ln -sf /root/.claude "/home/$CLAUDE_USER/.claude" 2>/dev/null || true
+
+    # Fix ownership of user's home only (not mounted volumes)
+    chown -R "$CLAUDE_UID:$CLAUDE_GID" "/home/$CLAUDE_USER" 2>/dev/null || true
+
+    # Run Claude as non-root user
+    exec gosu "$CLAUDE_USER" claude "$@"
+else
+    # Already non-root, just run claude
+    exec claude "$@"
+fi
