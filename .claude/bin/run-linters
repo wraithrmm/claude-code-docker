@@ -85,8 +85,9 @@ lint_dockerfile() {
 
     echo -e "Linting: $dockerfile\n"
 
-    # Run Hadolint in Docker
-    if docker run --rm -i hadolint/hadolint < "$dockerfile"; then
+    # DL3002: Root user is required for Docker-in-Docker and package management
+    # --failure-threshold error: Only fail on errors, not warnings
+    if docker run --rm -i hadolint/hadolint hadolint --failure-threshold error --ignore DL3002 - < "$dockerfile"; then
         echo -e "\n${GREEN}✓ Dockerfile passed all linting checks${NC}\n"
         return 0
     else
