@@ -1,0 +1,9 @@
+# Hadolint configuration
+# https://github.com/hadolint/hadolint#configure
+
+ignored:
+  # DL3002: Last USER should not be root
+  # This is a base image that runs as root by design.
+  # Claude Code requires root privileges for Docker-in-Docker operations
+  # and system-level package management within the container.
+  - DL3002
