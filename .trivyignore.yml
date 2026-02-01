@@ -54,5 +54,5 @@ vulnerabilities:
 misconfigurations:
   # DL3002/DS-0002: Last USER should not be root
   # This base image runs as root by design for Docker-in-Docker and package management
-  - id: AVD-DS-0002
+  - id: DS-0002
     statement: Base image requires root for Docker-in-Docker operations and system package management
