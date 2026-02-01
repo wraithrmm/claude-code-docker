@@ -28,6 +28,31 @@ vulnerabilities:
   - id: CVE-2025-66564
     statement: Cannot patch compiled Go binary, awaiting upstream release with fixed sigstore lib
 
+  # glob CLI command injection - FALSE POSITIVE for npm
+  # npm uses glob as a library, not CLI. The vulnerable -c/--cmd code path is never executed.
+  # See: https://github.com/npm/cli/issues/8741
+  - id: CVE-2025-64756
+    statement: FALSE POSITIVE - npm uses glob library interface, not CLI. Vulnerable code path never executed.
+
+  # node-tar vulnerabilities - npm transitive dependency
+  # npm 11.8.0 ships tar@7.5.4, fixes require tar@7.5.7+. No npm release available yet.
+  - id: CVE-2026-23745
+    statement: npm transitive dependency (tar@7.5.4), awaiting npm release with tar@7.5.7+
+  - id: CVE-2026-23950
+    statement: npm transitive dependency (tar@7.5.4), awaiting npm release with tar@7.5.7+
+  - id: CVE-2026-24842
+    statement: npm transitive dependency (tar@7.5.4), awaiting npm release with tar@7.5.7+
+
+  # Go stdlib vulnerabilities - net/url and archive/zip
+  # Affects terraform-docs, tflint, trivy, docker-compose
+  # Requires upstream releases compiled with Go 1.24.12+ or 1.25.6+
+  - id: CVE-2025-61726
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.12+ or 1.25.6+
+  - id: CVE-2025-61728
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.12+ or 1.25.6+
+
 misconfigurations:
-  # Base image so root user is ok
-  - id: AVD-DS-0002
+  # DL3002/DS-0002: Last USER should not be root
+  # This base image runs as root by design for Docker-in-Docker and package management
+  - id: DS-0002
+    statement: Base image requires root for Docker-in-Docker operations and system package management

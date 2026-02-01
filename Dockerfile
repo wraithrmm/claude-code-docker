@@ -180,9 +180,10 @@ COPY assets/.claude /workspace/.claude
 COPY assets/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Copy Claude wrapper script to /usr/local/bin (in PATH)
-COPY assets/claude-wrapper.sh /usr/local/bin/claude-wrapper
-RUN chmod +x /usr/local/bin/claude-wrapper
+# Copy claude-unsafe script for YOLO mode (--dangerously-skip-permissions)
+# This runs Claude as a non-root user to bypass the root privilege check
+COPY assets/claude-unsafe /usr/local/bin/claude-unsafe
+RUN chmod +x /usr/local/bin/claude-unsafe
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
