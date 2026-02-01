@@ -30,15 +30,49 @@ fi
 
 echo -e "\n${YELLOW}Running Trivy vulnerability scanner...${NC}"
 
-# Note: In Docker-in-Docker environments, mounting files can be problematic
-# So we'll run without the ignore file for now
-echo -e "${YELLOW}Note: Running without .trivyignore.yml in Docker-in-Docker environment${NC}"
+# Get the script's directory and find the .trivyignore.yml file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+TRIVYIGNORE_FILE="${PROJECT_ROOT}/.trivyignore.yml"
 
-# Run Trivy without ignore file
-docker run --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    aquasec/trivy:latest image \
-    ${IMAGE_NAME}
+if [ -f "${TRIVYIGNORE_FILE}" ]; then
+    echo -e "${YELLOW}Using ignore file: ${TRIVYIGNORE_FILE}${NC}"
+
+    # Create a temporary directory for trivy cache and copy ignore file
+    TRIVY_TEMP_DIR=$(mktemp -d)
+    cp "${TRIVYIGNORE_FILE}" "${TRIVY_TEMP_DIR}/.trivyignore.yml"
+
+    # Run Trivy with ignore file mounted
+    # Use HOST_PWD if available (Docker-in-Docker), otherwise use temp dir
+    if [ -n "${HOST_PWD}" ]; then
+        # In Docker-in-Docker: copy ignore file to host-accessible location
+        IGNORE_PATH="${HOST_PWD}/.trivyignore.yml"
+        cp "${TRIVYIGNORE_FILE}" "${IGNORE_PATH}" 2>/dev/null || true
+        docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${IGNORE_PATH}:/root/.trivyignore.yml:ro" \
+            aquasec/trivy:latest image \
+            --ignorefile /root/.trivyignore.yml \
+            ${IMAGE_NAME}
+    else
+        # Standard environment: mount ignore file directly
+        docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${TRIVYIGNORE_FILE}:/root/.trivyignore.yml:ro" \
+            aquasec/trivy:latest image \
+            --ignorefile /root/.trivyignore.yml \
+            ${IMAGE_NAME}
+    fi
+
+    # Cleanup temp directory
+    rm -rf "${TRIVY_TEMP_DIR}"
+else
+    echo -e "${YELLOW}Warning: No .trivyignore.yml found, running without suppressions${NC}"
+    docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        aquasec/trivy:latest image \
+        ${IMAGE_NAME}
+fi
 
 echo -e "\n${GREEN}=== Security scan complete ===${NC}"
 echo "Image scanned: ${IMAGE_NAME}"
