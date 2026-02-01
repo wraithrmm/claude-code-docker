@@ -85,9 +85,17 @@ lint_dockerfile() {
 
     echo -e "Linting: $dockerfile\n"
 
-    # DL3002: Root user is required for Docker-in-Docker and package management
+    # Read ignore rules from .hadolint.yaml (single source of truth)
+    # In Docker-in-Docker we can't mount the config, so we parse it and pass flags
+    local ignore_flags=""
+    local hadolint_config="${PROJECT_ROOT}/.hadolint.yaml"
+    if [ -f "$hadolint_config" ]; then
+        # Extract ignored rules from .hadolint.yaml
+        ignore_flags=$(grep -E "^\s*- DL[0-9]+" "$hadolint_config" | sed 's/.*\(DL[0-9]*\).*/--ignore \1/' | tr '\n' ' ')
+    fi
+
     # --failure-threshold error: Only fail on errors, not warnings
-    if docker run --rm -i hadolint/hadolint hadolint --failure-threshold error --ignore DL3002 - < "$dockerfile"; then
+    if docker run --rm -i hadolint/hadolint hadolint --failure-threshold error $ignore_flags - < "$dockerfile"; then
         echo -e "\n${GREEN}✓ Dockerfile passed all linting checks${NC}\n"
         return 0
     else

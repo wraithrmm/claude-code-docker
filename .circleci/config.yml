@@ -136,6 +136,7 @@ jobs:
           command: |
             ~/bin/hadolint \
               --failure-threshold error \
+              --config .hadolint.yaml \
               Dockerfile
 
   ok-to-publish:
