@@ -14,7 +14,7 @@
 set -e
 
 # Configuration
-IMAGE="claude-code-docker:local"
+IMAGE="wraithrmm/claude-code-docker:latest"
 CLAUDE_JSON="$HOME/.claude.json"
 CLAUDE_DIR="$HOME/.claude"
 
