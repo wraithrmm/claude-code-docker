@@ -130,6 +130,10 @@ RUN mkdir -p /workspace
 RUN mkdir -p /workspace/project
 WORKDIR /workspace
 
+# Security: override vulnerable transitive dependencies before installing local packages
+# CVE-2026-25547: @isaacs/brace-expansion <5.0.1 (Uncontrolled Resource Consumption)
+RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1"}}' > /workspace/package.json
+
 # Install Playwright with TypeScript support
 # This replicates your TypeScript choice and browser installation choice
 RUN npm install @playwright/test typescript @types/node
