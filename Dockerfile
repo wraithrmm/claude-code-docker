@@ -151,9 +151,6 @@ RUN npm install -g @playwright/mcp@latest
 # Verify Playwright MCP installation
 RUN npx @playwright/mcp --version || echo "Playwright MCP installed"
 
-# Fix transitive vulnerabilities in globally installed packages
-RUN npm audit fix --location=global 2>/dev/null || true
-
 # Create a templates directory for Playwright files that will be copied at runtime
 RUN mkdir -p /workspace/playwright-templates
 

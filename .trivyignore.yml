@@ -43,6 +43,13 @@ vulnerabilities:
   - id: CVE-2026-24842
     statement: npm transitive dependency (tar@7.5.4), awaiting npm release with tar@7.5.7+
 
+  # @isaacs/brace-expansion ReDoS - global npm transitive dependency
+  # Fixed in 5.0.1, but locked at 5.0.0 by upstream global package dependency trees.
+  # Local /workspace packages patched via npm overrides in Dockerfile.
+  # See: https://avd.aquasec.com/nvd/cve-2026-25547
+  - id: CVE-2026-25547
+    statement: Global npm transitive dependency (brace-expansion@5.0.0), awaiting upstream package release with >=5.0.1
+
   # Go stdlib vulnerabilities - net/url and archive/zip
   # Affects terraform-docs, tflint, trivy, docker-compose
   # Requires upstream releases compiled with Go 1.24.12+ or 1.25.6+
