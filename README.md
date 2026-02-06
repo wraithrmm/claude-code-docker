@@ -16,6 +16,7 @@ Before working with or on this, ensure you understand the appropriate AI usage g
 - [Quick Start](#quick-start)
 - [Initial Setup](#initial-setup)
 - [Running Claude Code on Your Project](#running-claude-code-on-your-project)
+  - [Unattended Mode (claude-unsafe)](#unattended-mode-claude-unsafe)
 - [Configuration Reference](#configuration-reference)
   - [Volume Mounts](#volume-mounts-explained)
   - [Environment Variables](#environment-variables-explained)
@@ -48,26 +49,57 @@ Get Claude Code running on your project in 60 seconds:
 
 1. **Prerequisites**: Docker installed, Claude subscription or API key
 
-2. **Run on your project**:
+2. **Clone this repository**:
+
+   ```bash
+   git clone https://github.com/wraithrmm/claude-code-docker.git ~/claude-code-docker
+   ```
+
+3. **Add to your PATH** (so you can run `run-claude-code` from anywhere):
+
+   Add the following to your shell profile (`~/.bashrc`, `~/.zshrc`, `~/.profile`, or equivalent):
+
+   ```bash
+   export PATH="$HOME/claude-code-docker/bin:$PATH"
+   ```
+
+   Then reload your shell:
+
+   ```bash
+   source ~/.bashrc   # or ~/.zshrc, ~/.profile, etc.
+   ```
+
+   > **Note:** The exact profile file depends on your shell and distribution. Common locations:
+   > - **Bash**: `~/.bashrc` (interactive) or `~/.bash_profile` (login shells, macOS default)
+   > - **Zsh**: `~/.zshrc` (macOS default since Catalina)
+   > - **Fish**: `~/.config/fish/config.fish` (use `set -Ux fish_user_paths ~/claude-code-docker/bin $fish_user_paths`)
+   >
+   > If you prefer not to modify your PATH, you can always use the full path instead (e.g., `~/claude-code-docker/bin/run-claude-code`).
+
+4. **Navigate to your project and launch**:
 
    ```bash
    cd /path/to/your/project
-   ./bin/run-claude-code
+   run-claude-code
    ```
 
-   The script automatically creates any missing dependencies (`~/.claude.json`, `~/.claude/`, workspace directory).
+   The script mounts your current working directory into the container as the project workspace. It also automatically creates any missing dependencies (`~/.claude.json`, `~/.claude/`, workspace directory).
 
-3. **Inside the container**:
+5. **Inside the container**:
 
    ```bash
    claude  # Start interactive session
    ```
 
-See [bin/README.md](bin/README.md) for all available options (`--host-network`, `--dry-run`, etc.).
+   > **Unattended / "YOLO" mode:** The container also includes `claude-unsafe`, a helper
+   > that runs Claude as a non-root user so that `--dangerously-skip-permissions` can be
+   > used. **Read the [warnings below](#unattended-mode-claude-unsafe) before using it.**
+
+See [Running Claude Code on Your Project](#running-claude-code-on-your-project) for all available options.
 
 ## Initial Setup
 
-The launcher script (`./bin/run-claude-code`) automatically creates required directories. For authentication (first time only):
+The `run-claude-code` launcher script automatically creates required directories. For authentication (first time only):
 
 - **Claude subscription**: Follow the browser-based login flow when prompted
 - **API key**: Enter your API key when prompted, or pre-create `~/.claude.json`:
@@ -79,17 +111,25 @@ The launcher script (`./bin/run-claude-code`) automatically creates required dir
 
 1. **Navigate to your project directory and launch**
 
+   From the root of whichever codebase you want to work on:
+
    ```bash
    cd /path/to/your/project
-   ./bin/run-claude-code
+   run-claude-code
+   ```
+
+   If you haven't added the script to your PATH (see [Quick Start](#quick-start)), use the full path to where you cloned this repository:
+
+   ```bash
+   ~/claude-code-docker/bin/run-claude-code
    ```
 
    **Common options:**
 
    ```bash
-   ./bin/run-claude-code --host-network   # Use host networking (for local services)
-   ./bin/run-claude-code --no-docker-sock # Without Docker-in-Docker capability
-   ./bin/run-claude-code --dry-run        # Preview the docker command
+   run-claude-code --host-network   # Use host networking (for local services)
+   run-claude-code --no-docker-sock # Without Docker-in-Docker capability
+   run-claude-code --dry-run        # Preview the docker command
    ```
 
 2. **Inside the container, use Claude Code**
@@ -108,6 +148,48 @@ The launcher script (`./bin/run-claude-code`) automatically creates required dir
    # Or run a specific command
    claude "explain the purpose of this codebase"
    ```
+
+### Unattended Mode (claude-unsafe)
+
+> **WARNING: USE AT YOUR OWN RISK.** The `claude-unsafe` helper enables
+> `--dangerously-skip-permissions`, which allows Claude to execute **any** command
+> without asking for confirmation. This includes destructive operations such as
+> deleting files, overwriting code, running arbitrary shell commands, and making
+> network requests. **You are solely responsible for any consequences.**
+
+The container includes a `claude-unsafe` helper script for running Claude Code in
+unattended ("YOLO") mode. This is intended **only** for automated pipelines, batch
+processing, or situations where you have fully reviewed the prompt and accept all risk.
+
+**How it works:** Claude Code requires a non-root user to enable
+`--dangerously-skip-permissions`. The `claude-unsafe` script creates a dedicated
+non-root user inside the container and runs Claude through it.
+
+**Usage (inside the container):**
+
+```bash
+# Interactive unattended session
+claude-unsafe --dangerously-skip-permissions
+
+# Non-interactive with a prompt
+claude-unsafe --dangerously-skip-permissions -p "refactor all tests to use vitest"
+```
+
+**Before using `claude-unsafe`, understand these risks:**
+
+- Claude will execute **any** tool call (file writes, shell commands, etc.) without confirmation
+- There is **no** undo — destructive actions happen immediately
+- Your mounted project directory is fully writable by the AI
+- If the Docker socket is mounted, Claude can execute arbitrary Docker commands on your host
+- You should **always** have your code committed to version control before running unattended mode, so you can revert unwanted changes
+- **Never** use this against a codebase containing secrets, credentials, or sensitive data that you would not want processed by an AI
+
+**Recommended safeguards:**
+
+1. Commit (or stash) all work before running
+2. Use `--no-docker-sock` to prevent Docker-on-host access
+3. Review the generated diff thoroughly after each run
+4. Use in disposable/CI environments where damage is limited
 
 ## Configuration Reference
 
@@ -184,14 +266,14 @@ To run Claude Code on multiple codebases simultaneously, open separate terminals
 
 ```bash
 cd /path/to/project-a
-./bin/run-claude-code
+run-claude-code
 ```
 
 **Terminal 2 - Project B:**
 
 ```bash
 cd /path/to/project-b
-./bin/run-claude-code
+run-claude-code
 ```
 
 Each instance runs independently with its own workspace mounted.
