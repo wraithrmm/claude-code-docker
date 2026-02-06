@@ -2,7 +2,7 @@
 #
 # run-claude-code - Launch Claude Code in Docker with automatic dependency management
 #
-# Usage: ./bin/run-claude-code [OPTIONS]
+# Usage: run-claude-code [OPTIONS]
 #
 # Options:
 #   --host-network    Use host networking instead of bridge (default: bridge)
@@ -120,7 +120,10 @@ show_help() {
     cat << 'EOF'
 run-claude-code - Launch Claude Code in Docker
 
-Usage: ./bin/run-claude-code [OPTIONS]
+Usage: run-claude-code [OPTIONS]
+
+Run this command from the root of any project you want to work on.
+Your current working directory is mounted into the container as the project workspace.
 
 Options:
   --host-network    Use host networking instead of bridge (default: bridge)
@@ -135,9 +138,10 @@ Dependencies (auto-created if missing):
                     Shared workspace directory
 
 Examples:
-  ./bin/run-claude-code                  # Run with default settings (bridge network)
-  ./bin/run-claude-code --host-network   # Run with host networking
-  ./bin/run-claude-code --dry-run        # Show command without running
+  cd /path/to/your/project
+  run-claude-code                  # Run with default settings (bridge network)
+  run-claude-code --host-network   # Run with host networking
+  run-claude-code --dry-run        # Show command without running
 
 EOF
 }
