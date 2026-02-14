@@ -58,6 +58,14 @@ vulnerabilities:
   - id: CVE-2025-61728
     statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.12+ or 1.25.6+
 
+  # Go stdlib crypto/tls vulnerabilities
+  # Affects docker, docker-proxy, dockerd, terraform, terraform-docs, tflint, docker-compose
+  # Requires upstream releases compiled with Go 1.24.13+ or 1.25.7+
+  - id: CVE-2025-68121
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.13+ or 1.25.7+
+  - id: CVE-2025-61730
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.12+ or 1.25.6+
+
 misconfigurations:
   # DL3002/DS-0002: Last USER should not be root
   # This base image runs as root by design for Docker-in-Docker and package management
