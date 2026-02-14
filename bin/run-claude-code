@@ -7,6 +7,7 @@
 # Options:
 #   --host-network    Use host networking instead of bridge (default: bridge)
 #   --no-docker-sock  Don't mount Docker socket
+#   --no-pull         Skip pulling the latest image before running
 #   --dry-run         Print the docker command without executing
 #   --help            Show this help message
 #
@@ -128,6 +129,7 @@ Your current working directory is mounted into the container as the project work
 Options:
   --host-network    Use host networking instead of bridge (default: bridge)
   --no-docker-sock  Don't mount the Docker socket into the container
+  --no-pull         Skip pulling the latest image before running
   --dry-run         Print the docker command without executing
   --help            Show this help message
 
@@ -150,6 +152,7 @@ EOF
 parse_args() {
     USE_HOST_NETWORK=false
     MOUNT_DOCKER_SOCK=true
+    SKIP_PULL=false
     DRY_RUN=false
 
     while [[ $# -gt 0 ]]; do
@@ -160,6 +163,10 @@ parse_args() {
                 ;;
             --no-docker-sock)
                 MOUNT_DOCKER_SOCK=false
+                shift
+                ;;
+            --no-pull)
+                SKIP_PULL=true
                 shift
                 ;;
             --dry-run)
@@ -177,6 +184,26 @@ parse_args() {
                 ;;
         esac
     done
+}
+
+# Pull the latest image before running
+pull_image() {
+    if [[ "$SKIP_PULL" == "true" ]]; then
+        echo "Skipping image pull (--no-pull)"
+        return 0
+    fi
+
+    echo ""
+    echo "Checking for updates to $IMAGE..."
+    echo "  (This may take a moment. Use --no-pull to skip this step)"
+    echo ""
+    if docker pull "$IMAGE"; then
+        echo ""
+        echo "Image up to date."
+    else
+        echo ""
+        echo "Warning: Failed to pull latest image. Using cached version if available."
+    fi
 }
 
 # Build and run the docker command
@@ -211,6 +238,12 @@ run_container() {
     cmd+=" /bin/bash"
 
     if [[ "$DRY_RUN" == "true" ]]; then
+        if [[ "$SKIP_PULL" == "true" ]]; then
+            echo "Would skip: docker pull $IMAGE"
+        else
+            echo "Would execute: docker pull $IMAGE"
+        fi
+        echo ""
         echo "Would execute:"
         echo ""
         echo "$cmd"
@@ -241,6 +274,8 @@ main() {
         fi
     fi
 
+    echo ""
+    pull_image
     echo ""
     run_container
 }

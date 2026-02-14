@@ -12,7 +12,8 @@ A wrapper script to run Claude Code in Docker with automatic dependency manageme
 That's it! The script will:
 1. Check if Docker is installed (with installation tips if not)
 2. Create any missing dependencies automatically
-3. Launch the Claude Code container
+3. Pull the latest Docker image (skip with `--no-pull`)
+4. Launch the Claude Code container
 
 ## Options
 
@@ -20,6 +21,7 @@ That's it! The script will:
 |------|-------------|
 | `--host-network` | Use host networking instead of bridge (default) |
 | `--no-docker-sock` | Don't mount Docker socket into container |
+| `--no-pull` | Skip pulling the latest image before running |
 | `--dry-run` | Print the docker command without executing |
 | `--help` | Show help message |
 
@@ -34,6 +36,9 @@ That's it! The script will:
 
 # See what command would run without executing
 ./bin/run-claude-code --dry-run
+
+# Skip image update check (use cached image)
+./bin/run-claude-code --no-pull
 
 # Without Docker-in-Docker capability
 ./bin/run-claude-code --no-docker-sock
