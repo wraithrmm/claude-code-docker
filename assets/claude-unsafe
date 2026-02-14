@@ -21,7 +21,19 @@ if [[ $(id -u) -eq 0 ]]; then
     # Create user if it doesn't exist
     if ! id -u "$CLAUDE_USER" >/dev/null 2>&1; then
         groupadd -g "$CLAUDE_GID" "$CLAUDE_USER" 2>/dev/null || true
-        useradd -u "$CLAUDE_UID" -g "$CLAUDE_GID" -G docker -m -s /bin/bash "$CLAUDE_USER" 2>/dev/null || true
+        useradd -u "$CLAUDE_UID" -g "$CLAUDE_GID" -m -s /bin/bash "$CLAUDE_USER" 2>/dev/null || true
+    fi
+
+    # Grant Docker socket access to the user
+    if [[ -S /var/run/docker.sock ]]; then
+        DOCKER_SOCK_GID=$(stat -c %g /var/run/docker.sock)
+        SOCK_GROUP=$(getent group "$DOCKER_SOCK_GID" | cut -d: -f1)
+        if [[ -n "$SOCK_GROUP" ]]; then
+            usermod -aG "$SOCK_GROUP" "$CLAUDE_USER" 2>/dev/null || true
+        else
+            groupadd -g "$DOCKER_SOCK_GID" dockersock 2>/dev/null || true
+            usermod -aG dockersock "$CLAUDE_USER" 2>/dev/null || true
+        fi
     fi
 
     # Make root's Claude config accessible AND writable by other users
