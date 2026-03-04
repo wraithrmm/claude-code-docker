@@ -229,6 +229,9 @@ if [[ ! -f "/Users/claude-code/tests/playwright.config.ts" ]]; then
     cp /workspace/playwright-templates/playwright.config.ts /Users/claude-code/tests/
 fi
 
+# Add project bin scripts to PATH for convenient access
+export PATH="/workspace/project/.claude/bin:$PATH"
+
 # Skip user switching in CI environments or if running as root
 if [[ "$CI" == "true" ]] || [[ "$RUN_AS_ROOT" == "true" ]] || [[ $PROJECT_UID -eq 0 ]]; then
     echo "Running as root..."
