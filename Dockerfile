@@ -125,6 +125,21 @@ RUN npm install -g \
     curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/bin" sh && \
     claude --version
 
+# Security: patch vulnerable transitive dependencies bundled inside npm itself
+# CVE-2026-26996, CVE-2026-27903, CVE-2026-27904: minimatch <10.2.3 (ReDoS)
+# CVE-2026-26960, GHSA-qffp-2rhf-9h96: tar <7.5.10 (Hardlink path traversal)
+RUN set -e && \
+    NPM_NM=/usr/lib/node_modules/npm/node_modules && \
+    mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
+    npm init -y --silent && \
+    npm install minimatch@10.2.3 tar@7.5.10 --install-strategy=nested --silent && \
+    rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" && \
+    cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
+    cp -r node_modules/tar "$NPM_NM/tar" && \
+    rm -rf /tmp/npm-patches && \
+    node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
+    node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)"
+
 # Create a workspace directory for Claude Code projects
 RUN mkdir -p /workspace
 RUN mkdir -p /workspace/project
@@ -132,7 +147,9 @@ WORKDIR /workspace
 
 # Security: override vulnerable transitive dependencies before installing local packages
 # CVE-2026-25547: @isaacs/brace-expansion <5.0.1 (Uncontrolled Resource Consumption)
-RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1"}}' > /workspace/package.json
+# CVE-2026-26996, CVE-2026-27903, CVE-2026-27904: minimatch <10.2.3 (ReDoS)
+# CVE-2026-26960, GHSA-qffp-2rhf-9h96: tar <7.5.10 (Hardlink path traversal)
+RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1","minimatch":">=10.2.3","tar":">=7.5.10"}}' > /workspace/package.json
 
 # Install Playwright with TypeScript support
 # This replicates your TypeScript choice and browser installation choice
