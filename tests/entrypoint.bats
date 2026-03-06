@@ -346,159 +346,25 @@ load test_helper
 
 @test "6.2: handles empty .claude/bin directory" {
     mkdir -p "$TEST_PROJECT/.claude/bin"
-    
+
     run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
+
     assert_success
-    assert_output_contains "Found project-specific bin scripts"
-    assert_output_contains "Project bin scripts copied to container"
+    refute_output_contains "Found project-specific bin scripts"
+    refute_output_contains "Project bin scripts copied"
 }
 
-# Test 7: Bin copying functionality - Basic operations
+# Test 7: Bin scripts are available via PATH (no copying)
 
-@test "7.1: copies basic bin script file" {
+@test "7.1: does not copy bin scripts from project to workspace" {
     mkdir -p "$TEST_PROJECT/.claude/bin"
     create_file "$TEST_PROJECT/.claude/bin/test-script.sh" "#!/bin/bash\necho test"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/test-script.sh"
-    assert_file_contains "$TEST_WORKSPACE/.claude/bin/test-script.sh" "echo test"
-    assert_output_contains "Project bin scripts copied to container"
-}
 
-@test "7.2: copies multiple bin script files" {
-    mkdir -p "$TEST_PROJECT/.claude/bin"
-    create_file "$TEST_PROJECT/.claude/bin/script1.sh" "echo script1"
-    create_file "$TEST_PROJECT/.claude/bin/script2.sh" "echo script2"
-    create_file "$TEST_PROJECT/.claude/bin/script3.sh" "echo script3"
-    
     run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script1.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script2.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script3.sh"
-}
 
-@test "7.3: preserves nested directory structure in bin" {
-    mkdir -p "$TEST_PROJECT/.claude/bin/utils/helpers"
-    mkdir -p "$TEST_PROJECT/.claude/bin/tools"
-    create_file "$TEST_PROJECT/.claude/bin/utils/script1.sh" "script1"
-    create_file "$TEST_PROJECT/.claude/bin/utils/helpers/script2.sh" "script2"
-    create_file "$TEST_PROJECT/.claude/bin/tools/script3.sh" "script3"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
     assert_success
-    assert_dir_exists "$TEST_WORKSPACE/.claude/bin/utils"
-    assert_dir_exists "$TEST_WORKSPACE/.claude/bin/utils/helpers"
-    assert_dir_exists "$TEST_WORKSPACE/.claude/bin/tools"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/utils/script1.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/utils/helpers/script2.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/tools/script3.sh"
-}
-
-@test "7.4: respects no-overwrite flag for bin scripts" {
-    mkdir -p "$TEST_WORKSPACE/.claude/bin"
-    create_file "$TEST_WORKSPACE/.claude/bin/existing.sh" "original content"
-    
-    mkdir -p "$TEST_PROJECT/.claude/bin"
-    create_file "$TEST_PROJECT/.claude/bin/existing.sh" "new content"
-    create_file "$TEST_PROJECT/.claude/bin/new.sh" "new file"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_contains "$TEST_WORKSPACE/.claude/bin/existing.sh" "original content"
-    refute_file_contains "$TEST_WORKSPACE/.claude/bin/existing.sh" "new content"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/new.sh"
-}
-
-@test "7.5: handles special characters in bin filenames" {
-    mkdir -p "$TEST_PROJECT/.claude/bin"
-    touch "$TEST_PROJECT/.claude/bin/script with spaces.sh"
-    touch "$TEST_PROJECT/.claude/bin/script-with-dashes.sh"
-    touch "$TEST_PROJECT/.claude/bin/script_with_underscores.sh"
-    touch "$TEST_PROJECT/.claude/bin/script.multiple.dots.sh"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script with spaces.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script-with-dashes.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script_with_underscores.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script.multiple.dots.sh"
-}
-
-@test "7.6: preserves file permissions for bin scripts" {
-    mkdir -p "$TEST_PROJECT/.claude/bin"
-    create_file "$TEST_PROJECT/.claude/bin/executable.sh" "#!/bin/bash\necho executable"
-    make_executable "$TEST_PROJECT/.claude/bin/executable.sh"
-    
-    create_file "$TEST_PROJECT/.claude/bin/non-executable.sh" "echo non-executable"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_executable "$TEST_WORKSPACE/.claude/bin/executable.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/non-executable.sh"
-    ! [[ -x "$TEST_WORKSPACE/.claude/bin/non-executable.sh" ]] || { echo "non-executable.sh should not be executable" >&2; return 1; }
-}
-
-@test "7.7: handles bin copy errors gracefully" {
-    mkdir -p "$TEST_PROJECT/.claude/bin"
-    create_file "$TEST_PROJECT/.claude/bin/test.sh" "test content"
-    
-    # Make destination directory read-only to force copy error
-    mkdir -p "$TEST_WORKSPACE/.claude/bin"
-    chmod -w "$TEST_WORKSPACE/.claude/bin"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    # Should still succeed due to || true in the script
-    assert_success
-    assert_output_contains "Project bin scripts copied to container"
-    
-    # Restore permissions for cleanup
-    chmod +w "$TEST_WORKSPACE/.claude/bin"
-}
-
-@test "7.8: handles mixed file types in bin" {
-    mkdir -p "$TEST_PROJECT/.claude/bin"
-    
-    # Regular files
-    create_file "$TEST_PROJECT/.claude/bin/script.sh" "#!/bin/bash"
-    create_file "$TEST_PROJECT/.claude/bin/README.md" "Documentation"
-    
-    # Different permissions
-    make_executable "$TEST_PROJECT/.claude/bin/script.sh"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/README.md"
-    assert_file_executable "$TEST_WORKSPACE/.claude/bin/script.sh"
-}
-
-@test "7.9: handles large number of bin files" {
-    mkdir -p "$TEST_PROJECT/.claude/bin"
-    
-    # Create 50 test files
-    for i in {1..50}; do
-        create_file "$TEST_PROJECT/.claude/bin/script$i.sh" "echo $i"
-    done
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    
-    # Verify a sample of files were copied
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script1.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script25.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/bin/script50.sh"
+    assert_file_not_exists "$TEST_WORKSPACE/.claude/bin/test-script.sh"
+    refute_output_contains "Project bin scripts copied"
 }
 
 # Test 8: Playwright directory initialization

@@ -105,17 +105,6 @@ if [[ -d "/workspace/project/.claude/commands" ]]; then
     echo "Project commands copied to container"
 fi
 
-# Check if project has custom bin scripts
-if [[ -d "/workspace/project/.claude/bin" ]]; then
-    echo "Found project-specific bin scripts in /workspace/project/.claude/bin/"
-
-    # Copy all files from project bin to container bin
-    # Using cp -r to preserve directory structure and -n to not overwrite existing files
-    cp -rn /workspace/project/.claude/bin/* /workspace/.claude/bin/ 2>/dev/null || true
-
-    echo "Project bin scripts copied to container"
-fi
-
 # Check if project has custom skills
 if [[ -d "/workspace/project/.claude/skills" ]]; then
     echo "Found project-specific skills in /workspace/project/.claude/skills/"
@@ -230,7 +219,7 @@ if [[ ! -f "/Users/claude-code/tests/playwright.config.ts" ]]; then
 fi
 
 # Add project bin scripts to PATH for convenient access
-export PATH="/workspace/project/.claude/bin:$PATH"
+export PATH="/workspace/project/.claude/bin:/workspace/.claude/bin:$PATH"
 
 # Skip user switching in CI environments or if running as root
 if [[ "$CI" == "true" ]] || [[ "$RUN_AS_ROOT" == "true" ]] || [[ $PROJECT_UID -eq 0 ]]; then
