@@ -16,11 +16,18 @@ jobs:
           command: |
             sudo npm install -g bats
       - run:
+          name: Install PowerShell Core (pwsh)
+          command: |
+            PWSH_VERSION="7.4.6"
+            wget -q "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell_${PWSH_VERSION}-1.deb_amd64.deb" -O /tmp/pwsh.deb
+            sudo dpkg -i /tmp/pwsh.deb || sudo apt-get install -f -y
+            pwsh --version
+      - run:
           name: Run All Tests
           command: |
             # Make run-tests.sh executable
             chmod +x run-tests.sh
-            
+
             # Run all tests
             ./run-tests.sh
 

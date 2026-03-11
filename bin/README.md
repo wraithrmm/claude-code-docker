@@ -94,3 +94,90 @@ sudo chown $(whoami) /home/claude-code
 ### Docker daemon not running
 - **macOS**: Start Docker Desktop
 - **Linux**: `sudo systemctl start docker`
+- **Windows**: Start Docker Desktop
+
+---
+
+## Windows (PowerShell)
+
+A PowerShell equivalent of the bash launcher is provided for Windows users.
+
+### Quick Start
+
+```powershell
+# From the repository root
+.\bin\run-claude-code.ps1
+```
+
+If you get an execution policy error, use one of these approaches:
+
+```powershell
+# Option 1: Bypass for a single run (no admin required)
+powershell -ExecutionPolicy Bypass -File .\bin\run-claude-code.ps1
+
+# Option 2: Set policy permanently for your user (requires admin)
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+### Prerequisites
+
+- **Docker Desktop for Windows** — [Download](https://www.docker.com/products/docker-desktop)
+- **PowerShell 5.1+** (built into Windows 10/11) or **PowerShell Core 7+**
+
+### Options
+
+The script supports both PowerShell-style (`-PascalCase`) and bash-style (`--kebab-case`) flags:
+
+| PowerShell Flag | Bash-Style Alias | Description |
+|-----------------|------------------|-------------|
+| `-HostNetwork` | `--host-network` | Use host networking instead of bridge |
+| `-NoDockerSock` | `--no-docker-sock` | Don't mount Docker socket into container |
+| `-NoPull` | `--no-pull` | Skip pulling the latest image before running |
+| `-OAuthPort PORT` | `--oauth-port PORT` | Host port for MCP OAuth callbacks (default: 3334) |
+| `-DryRun` | `--dry-run` | Print the docker command without executing |
+| `-Help` | `--help` | Show help message |
+
+### Examples
+
+```powershell
+# Default (bridge networking)
+.\bin\run-claude-code.ps1
+
+# With host networking
+.\bin\run-claude-code.ps1 -HostNetwork
+
+# See what command would run without executing
+.\bin\run-claude-code.ps1 -DryRun
+
+# Skip image update check
+.\bin\run-claude-code.ps1 -NoPull
+
+# Bash-style flags also work
+.\bin\run-claude-code.ps1 --dry-run --no-pull
+```
+
+### Windows-Specific Paths
+
+| Path | Purpose |
+|------|---------|
+| `%USERPROFILE%\.claude.json` | Claude authentication/configuration |
+| `%USERPROFILE%\.claude\` | Claude persistent state |
+| `C:\Users\claude-code\` | Shared workspace directory |
+
+### Windows Volume Mounts
+
+| Host Path | Container Path | Purpose |
+|-----------|----------------|---------|
+| Current directory | `/workspace/project` | Your codebase |
+| `%USERPROFILE%\.claude.json` | `/root/.claude.json` | Auth config |
+| `%USERPROFILE%\.claude\` | `/root/.claude/` | Persistent state |
+| `\\.\pipe\docker_engine` | `/var/run/docker.sock` | Docker-in-Docker |
+| `C:\Users\claude-code\` | `C:\Users\claude-code\` | Shared files |
+
+### Windows Troubleshooting
+
+#### Docker not found
+Install Docker Desktop from https://www.docker.com/products/docker-desktop
+
+#### Workspace directory permissions
+Creating `C:\Users\claude-code\` may require administrator privileges. Run PowerShell as Administrator if the script reports a permission error, or create the directory manually.
