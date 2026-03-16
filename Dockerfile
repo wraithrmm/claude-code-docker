@@ -128,11 +128,12 @@ RUN npm install -g \
 # Security: patch vulnerable transitive dependencies bundled inside npm itself
 # CVE-2026-26996, CVE-2026-27903, CVE-2026-27904: minimatch <10.2.3 (ReDoS)
 # CVE-2026-26960, GHSA-qffp-2rhf-9h96: tar <7.5.10 (Hardlink path traversal)
+# CVE-2026-31802: tar <7.5.11 (Drive-relative symlink traversal)
 RUN set -e && \
     NPM_NM=/usr/lib/node_modules/npm/node_modules && \
     mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
     npm init -y --silent && \
-    npm install minimatch@10.2.3 tar@7.5.10 --install-strategy=nested --silent && \
+    npm install minimatch@10.2.3 tar@7.5.11 --install-strategy=nested --silent && \
     rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" && \
     cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
     cp -r node_modules/tar "$NPM_NM/tar" && \
@@ -149,7 +150,8 @@ WORKDIR /workspace
 # CVE-2026-25547: @isaacs/brace-expansion <5.0.1 (Uncontrolled Resource Consumption)
 # CVE-2026-26996, CVE-2026-27903, CVE-2026-27904: minimatch <10.2.3 (ReDoS)
 # CVE-2026-26960, GHSA-qffp-2rhf-9h96: tar <7.5.10 (Hardlink path traversal)
-RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1","minimatch":">=10.2.3","tar":">=7.5.10"}}' > /workspace/package.json
+# CVE-2026-31802: tar <7.5.11 (Drive-relative symlink traversal)
+RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1","minimatch":">=10.2.3","tar":">=7.5.11"}}' > /workspace/package.json
 
 # Install Playwright with TypeScript support
 # This replicates your TypeScript choice and browser installation choice
