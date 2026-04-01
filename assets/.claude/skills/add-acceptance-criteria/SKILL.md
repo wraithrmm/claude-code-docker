@@ -1,5 +1,6 @@
 ---
-description: Add acceptance criteria to an existing feature, implement, and test with Playwright E2E
+name: add-acceptance-criteria
+description: Add acceptance criteria to an existing feature, implement the changes, and test with Playwright E2E.
 argument-hint: <feature-name> <use-case description>
 ---
 
@@ -71,6 +72,6 @@ Use the **e2e-testing** skill. Key requirements:
 4. If tests fail, fix and re-run until all pass
 5. Report the final pass/fail summary to the user
 
-## Related Commands
+## Related Skills
 - `/create-task` - Create a standalone task with full PRP
 - `/test-and-fix` - Run tests and fix failures

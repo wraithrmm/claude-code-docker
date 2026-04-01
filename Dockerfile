@@ -125,18 +125,23 @@ RUN npm install -g \
     curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/bin" sh && \
     claude --version
 
-# Security: patch vulnerable transitive dependencies bundled inside npm itself
+# Security: patch vulnerable transitive dependencies bundled inside npm and global packages
 # CVE-2026-26996, CVE-2026-27903, CVE-2026-27904: minimatch <10.2.3 (ReDoS)
 # CVE-2026-26960, GHSA-qffp-2rhf-9h96: tar <7.5.10 (Hardlink path traversal)
 # CVE-2026-31802: tar <7.5.11 (Drive-relative symlink traversal)
+# CVE-2026-33671: picomatch <4.0.4 (ReDoS via crafted extglob patterns)
+#   picomatch affected locations: npm/tinyglobby/picomatch, markdownlint-cli/tinyglobby/picomatch
+#   No upstream fix yet: npm <=11.12.1 and markdownlint-cli 0.48.0 both bundle picomatch 4.0.3
 RUN set -e && \
     NPM_NM=/usr/lib/node_modules/npm/node_modules && \
     mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
     npm init -y --silent && \
-    npm install minimatch@10.2.3 tar@7.5.11 --install-strategy=nested --silent && \
+    npm install minimatch@10.2.3 tar@7.5.11 picomatch@4.0.4 --install-strategy=nested --silent && \
     rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" && \
     cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
     cp -r node_modules/tar "$NPM_NM/tar" && \
+    find /usr/lib/node_modules -name picomatch -type d \
+      -exec sh -c 'v=$(node -p "require(\"$1/package.json\").version"); [ "$v" = "4.0.3" ] && rm -rf "$1" && cp -r node_modules/picomatch "$1" && echo "Patched $1: $v -> 4.0.4"' _ {} \; && \
     rm -rf /tmp/npm-patches && \
     node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
     node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)"
@@ -198,6 +203,13 @@ COPY assets/mcp.json /workspace/.mcp.json
 
 # Copy .claude dir to root to share common commands across all Claude Code instances
 COPY assets/.claude /workspace/.claude
+
+# Install claude-workflow plugin from GitHub
+# Provides workflow commands (/hello, /create-project, /list-tasks, etc.) and scripts
+RUN git clone --depth 1 https://github.com/wraithrmm/claude-workflow.git /opt/claude-workflow && \
+    cp /opt/claude-workflow/scripts/* /workspace/.claude/bin/ && \
+    cp -r /opt/claude-workflow/skills/* /workspace/.claude/skills/ && \
+    chmod +x /workspace/.claude/bin/*
 
 # Copy entrypoint script
 COPY assets/entrypoint.sh /entrypoint.sh
