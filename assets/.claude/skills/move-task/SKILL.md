@@ -1,3 +1,10 @@
+---
+name: move-task
+description: Move a global task between workflow status directories (planning, approved, in-progress, completed).
+disable-model-invocation: true
+argument-hint: <task-name> <status>
+---
+
 # Move a task to a different status in the workflow
 
 ## Usage
@@ -9,8 +16,8 @@
 Moves a task file between status directories, updating its status and timestamp. This command manages the task workflow progression.
 
 ## Parameters
-- `<task-name>`: The name of the task to move
-- `<status>`: The target status (planning, approved, in-progress, completed)
+- `$0`: The name of the task to move
+- `$1`: The target status (planning, approved, in-progress, completed)
 
 ## Valid Status Values
 - `planning` - Task is being defined
@@ -41,24 +48,12 @@ When you move a task:
 4. The original file is removed from the old location
 
 ## Workflow Best Practices
-1. **planning → approved**: Task requirements are clear and complete
-2. **approved → in-progress**: You're starting work on the task
-3. **in-progress → completed**: All acceptance criteria are met
+1. **planning -> approved**: Task requirements are clear and complete
+2. **approved -> in-progress**: You're starting work on the task
+3. **in-progress -> completed**: All acceptance criteria are met
 4. Tasks can move backwards if revision is needed
 
-## File Changes
-The command updates these fields in the task file:
-```markdown
-Status: [new-status]
-Updated: [current-timestamp]
-```
-
-## Error Handling
-- Task must exist in one of the status directories
-- Target status must be valid
-- If task is already in target status, no action is taken
-
-## Related Commands
+## Related Skills
 - `/create-task` - Create a new task
 - `/list-tasks` - View all tasks by status
 - `/create-project` - Create a larger project PRP

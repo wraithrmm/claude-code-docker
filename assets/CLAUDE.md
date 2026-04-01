@@ -492,7 +492,7 @@ When starting a new project the PRP **must** include these steps:
    }
    ```
 
-4. **MANDATORY**: You must follow the "Project Workflow" process described in `/workflow/.claude/commands/create-project.md`
+4. **MANDATORY**: You must follow the "Project Workflow" process described in the `create-project` skill
 
 ### Implementation Phase Process
 

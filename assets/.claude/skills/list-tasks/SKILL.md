@@ -1,3 +1,9 @@
+---
+name: list-tasks
+description: Display all tasks (global and project-specific) grouped by their current workflow status.
+disable-model-invocation: true
+---
+
 # Display all tasks grouped by their current status
 
 ## Usage
@@ -54,13 +60,7 @@ Total tasks: 7
 - **in-progress**: Task is currently being worked on
 - **completed**: Task has been finished
 
-## Usage Tips
-1. Use this command to get an overview of all tasks
-2. Tasks should move through statuses sequentially
-3. Only one task should typically be in-progress at a time
-4. Completed tasks can be archived or deleted periodically
-
-## Related Commands
+## Related Skills
 - `/create-task` - Create a new task
 - `/move-task` - Change a task's status
 - `/create-project` - Create a larger project PRP

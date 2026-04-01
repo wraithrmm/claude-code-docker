@@ -1,3 +1,9 @@
+---
+name: init-playground
+description: Initialize the ai-playground directory structure and show current status of projects and tasks.
+disable-model-invocation: true
+---
+
 # Initialize the ai-playground directory structure and show current status
 
 ## Usage
@@ -27,11 +33,11 @@ This command sets up the ai-playground directory structure if it doesn't exist a
 ## Output Example
 ```
 Following CLAUDE.md process
-✅ ai-playground directory exists
+ai-playground directory exists
 
 Existing projects:
-1. 📁 ecommerce-redesign
-2. 📁 api-migration
+1. ecommerce-redesign
+2. api-migration
 
 Ready for new work:
 - Found 2 project(s)
@@ -40,7 +46,7 @@ Ready for new work:
 Use /list-projects to see projects or /list-tasks to see tasks
 ```
 
-## Related Commands
+## Related Skills
 - `/list-projects` - Show detailed project information
 - `/list-tasks` - Show tasks by status
 - `/create-project` - Create a new project
