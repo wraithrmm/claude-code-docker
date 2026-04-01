@@ -134,22 +134,17 @@ RUN npm install -g \
 #   No upstream fix yet: npm <=11.12.1 and markdownlint-cli 0.48.0 both bundle picomatch 4.0.3
 RUN set -e && \
     NPM_NM=/usr/lib/node_modules/npm/node_modules && \
-    MLCLI_NM=/usr/lib/node_modules/markdownlint-cli/node_modules && \
     mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
     npm init -y --silent && \
     npm install minimatch@10.2.3 tar@7.5.11 picomatch@4.0.4 --install-strategy=nested --silent && \
     rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" && \
     cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
     cp -r node_modules/tar "$NPM_NM/tar" && \
-    rm -rf "$NPM_NM/tinyglobby/node_modules/picomatch" && \
-    cp -r node_modules/picomatch "$NPM_NM/tinyglobby/node_modules/picomatch" && \
-    rm -rf "$MLCLI_NM/tinyglobby/node_modules/picomatch" && \
-    cp -r node_modules/picomatch "$MLCLI_NM/tinyglobby/node_modules/picomatch" && \
+    find /usr/lib/node_modules -name picomatch -type d \
+      -exec sh -c 'v=$(node -p "require(\"$1/package.json\").version"); [ "$v" = "4.0.3" ] && rm -rf "$1" && cp -r node_modules/picomatch "$1" && echo "Patched $1: $v -> 4.0.4"' _ {} \; && \
     rm -rf /tmp/npm-patches && \
     node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
-    node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)" && \
-    node -e "console.log('picomatch (npm): ' + require('$NPM_NM/tinyglobby/node_modules/picomatch/package.json').version)" && \
-    node -e "console.log('picomatch (markdownlint-cli): ' + require('$MLCLI_NM/tinyglobby/node_modules/picomatch/package.json').version)"
+    node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)"
 
 # Create a workspace directory for Claude Code projects
 RUN mkdir -p /workspace
