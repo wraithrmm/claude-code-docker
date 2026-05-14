@@ -116,7 +116,7 @@ run_ps1() {
     assert_output_contains "-DryRun"
     assert_output_contains "-Help"
     assert_output_contains "USERPROFILE"
-    assert_output_contains "C:\\Users\\claude-code"
+    assert_output_contains "%USERPROFILE%\\claude-code"
 }
 
 # ---------------------------------------------------------------------------

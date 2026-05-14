@@ -162,7 +162,7 @@ The script supports both PowerShell-style (`-PascalCase`) and bash-style (`--keb
 |------|---------|
 | `%USERPROFILE%\.claude.json` | Claude authentication/configuration |
 | `%USERPROFILE%\.claude\` | Claude persistent state |
-| `C:\Users\claude-code\` | Shared workspace directory |
+| `%USERPROFILE%\claude-code\` | Shared workspace directory |
 
 ### Windows Volume Mounts
 
@@ -172,7 +172,7 @@ The script supports both PowerShell-style (`-PascalCase`) and bash-style (`--keb
 | `%USERPROFILE%\.claude.json` | `/root/.claude.json` | Auth config |
 | `%USERPROFILE%\.claude\` | `/root/.claude/` | Persistent state |
 | `\\.\pipe\docker_engine` | `/var/run/docker.sock` | Docker-in-Docker |
-| `C:\Users\claude-code\` | `C:\Users\claude-code\` | Shared files |
+| `%USERPROFILE%\claude-code\` | `/Users/claude-code` | Shared files |
 
 ### Windows Troubleshooting
 

@@ -61,7 +61,7 @@ $Image = if ($env:CLAUDE_TEST_IMAGE) { $env:CLAUDE_TEST_IMAGE } else { 'wraithrm
 $UserHome = if ($env:CLAUDE_TEST_USERPROFILE) { $env:CLAUDE_TEST_USERPROFILE } else { $env:USERPROFILE }
 $ClaudeJson = Join-Path $UserHome '.claude.json'
 $ClaudeDir = Join-Path $UserHome '.claude'
-$WorkspaceDir = 'C:\Users\claude-code'
+$WorkspaceDir = Join-Path $UserHome 'claude-code'
 
 # ---------------------------------------------------------------------------
 # Functions
@@ -93,7 +93,7 @@ Options:
 Dependencies (auto-created if missing):
   %USERPROFILE%\.claude.json    Claude authentication/configuration
   %USERPROFILE%\.claude\        Claude persistent state directory
-  C:\Users\claude-code\         Shared workspace directory
+  %USERPROFILE%\claude-code\    Shared workspace directory
 
 Examples:
   cd C:\path\to\your\project
@@ -173,7 +173,7 @@ function Pull-Image {
     Write-Output '  (This may take a moment. Use -NoPull to skip this step)'
     Write-Output ''
 
-    & docker pull $Image 2>&1 | Out-Null
+    & docker pull $Image
     if ($LASTEXITCODE -eq 0) {
         Write-Output 'Image up to date.'
     }
@@ -214,7 +214,7 @@ function Start-Container {
 
     if ($script:WorkspaceAvailable) {
         $dockerArgs += '-v'
-        $dockerArgs += "${WorkspaceDir}:${WorkspaceDir}"
+        $dockerArgs += "${WorkspaceDir}:/Users/claude-code"
     }
 
     # Git config mount
