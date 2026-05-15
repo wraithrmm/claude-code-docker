@@ -1,3 +1,10 @@
+---
+name: create-project
+description: Create a new project with full PRP structure in ai-playground. Use for larger implementations with multiple tasks or complex planning.
+disable-model-invocation: true
+argument-hint: <project-name>
+---
+
 # Create a new project with a full PRP structure
 
 ## Usage
@@ -19,7 +26,7 @@ Always identify and seperate Infrastructure vs Application-Level concerns so tha
 1. Get the project name if not already provided (**MANDATORY**: You may not proceed without a project name).
 2. Create the project with this command:
    ```bash
-   /workspace/.claude/bin/create-project <project-name>
+   /workspace/.claude/bin/create-project $ARGUMENTS
    ```
 3. You must read the files in this directory before beginning to plan: `/workspace/project/.claude/prp-templates`
 4. Start planning with the user:
@@ -39,7 +46,7 @@ Always identify and seperate Infrastructure vs Application-Level concerns so tha
 **IMPORTANT:** You are not implementing. Your success criteria is that you have created a project PRP with all supporting tasks with a master plan in it that the user has approved.
 
 ## Parameters
-- `<project-name>`: The name of the project (used as directory name)
+- `$ARGUMENTS`: The name of the project (used as directory name)
 
 ## Example
 ```
@@ -70,8 +77,8 @@ The main PRP document containing:
 ### progress.md
 A chronological log of progress with:
 - Timestamped entries
-- Completed items (✅)
-- In-progress items (⏳)
+- Completed items
+- In-progress items
 - Blockers or issues
 
 ### status.json
@@ -93,7 +100,7 @@ Additional documentation for:
 - Issues encountered and solutions
 - References to tickets, docs, etc.
 
-## Related Commands
+## Related Skills
 - `/list-projects` - View all projects and statuses
-- `/continue <project-name|number>` - Resume work on a project by name of number (from the /list-project command)
+- `/continue-project` - Resume work on a project by name or number
 - `/create-task` - Create a smaller, focused task

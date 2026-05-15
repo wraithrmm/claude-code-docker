@@ -1,3 +1,9 @@
+---
+name: list-projects
+description: List all projects in ai-playground with status summaries and progress information.
+disable-model-invocation: true
+---
+
 # List all projects you have underway
 
 1. **Run the list projects script:**

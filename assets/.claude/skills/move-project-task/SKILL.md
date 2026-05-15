@@ -1,6 +1,11 @@
-# /move-project-task
+---
+name: move-project-task
+description: Move a task between status directories within a specific project.
+disable-model-invocation: true
+argument-hint: <project-name> <task-name> <status>
+---
 
-Move a task between status directories within a specific project
+# Move a project task between status directories
 
 ## Usage
 ```
@@ -13,9 +18,9 @@ Moves a task from its current status to a new status within a specific project's
 The command searches for the task across all status directories within the specified project and moves it to the target status directory.
 
 ## Parameters
-- `<project-name>`: The name of the project containing the task (required)
-- `<task-name>`: The name of the task to move (without .md extension) (required)
-- `<status>`: The target status (required). Valid values:
+- `$0`: The name of the project containing the task (required)
+- `$1`: The name of the task to move (without .md extension) (required)
+- `$2`: The target status (required). Valid values:
   - `planning` - Task is being planned
   - `approved` - Task is approved and ready to work on
   - `in-progress` - Task is currently being worked on
@@ -36,12 +41,6 @@ The command searches for the task across all status directories within the speci
 /move-project-task my-project implement-feature planning
 ```
 
-## Output
-The command provides:
-- Confirmation of the move with source and destination status
-- Context-appropriate next steps based on the target status
-- Error messages if the project/task is not found or status is invalid
-
 ## Error Handling
 - **Missing arguments**: Shows usage instructions
 - **Invalid status**: Lists valid status options
@@ -50,7 +49,7 @@ The command provides:
 - **Task already in target status**: Confirms current status without error
 - **AI playground not initialized**: Prompts to run `/init-playground` first
 
-## Related Commands
+## Related Skills
 - `/create-project-task` - Create a new task within a project
 - `/list-project-tasks` - List all tasks within a specific project
 - `/move-task` - Move tasks in the global task directory (not project-specific)

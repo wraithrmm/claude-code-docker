@@ -77,6 +77,41 @@ vulnerabilities:
   - id: CVE-2025-15558
     statement: Cannot patch compiled Go binary, awaiting upstream release with docker/cli 29.2.0+
 
+  # gRPC-Go authorization bypass via improper HTTP/2 path validation
+  # Affects dockerd, terraform, terraform-docs, tflint, trivy, docker-compose (compiled Go binaries)
+  # Low exploitability: these are CLI tools, not gRPC servers with path-based AuthZ deny rules
+  # Requires upstream releases compiled with google.golang.org/grpc 1.79.3+
+  - id: CVE-2026-33186
+    statement: Cannot patch compiled Go binary. Low risk — affects gRPC server-side AuthZ, these tools use gRPC as clients. Awaiting upstream releases with grpc 1.79.3+
+
+  # Go stdlib net/url incorrect parsing of IPv6 host literals
+  # Affects terraform-docs (Go 1.24.0), tflint (Go 1.25.5), trivy (Go 1.25.6) — compiled Go binaries
+  # Docker Engine 29.3.1 and Terraform 1.14.8 already ship Go 1.25.8 (fixed)
+  # terraform-docs is semi-dormant (last release Dec 2025, Go 1.25 compat issue #870)
+  - id: CVE-2026-25679
+    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.8+ or 1.26.1+
+
+  # Moby AuthZ plugin bypass when provided oversized request bodies
+  # Affects trivy, docker-compose (compiled Go binaries using docker/docker client library)
+  # Not exploitable: CVE targets dockerd server-side AuthZ plugin; these tools only use the client SDK
+  # Docker Engine 29.3.1 includes the fix for dockerd itself
+  - id: CVE-2026-34040
+    statement: Cannot patch compiled Go binary. Not exploitable — CVE affects dockerd AuthZ server, these tools use docker client SDK only. Awaiting upstream releases with docker 29.3.1+
+
+  # BuildKit arbitrary file write and code execution via untrusted frontend
+  # Affects trivy (buildkit v0.26.2), docker-compose (buildkit v0.27.1) — compiled Go binaries
+  # Docker Engine 29.3.1 ships buildkit v0.28.1 (fixed for actual build execution)
+  # trivy uses buildkit as a library for image analysis, not for running builds from untrusted Dockerfiles
+  # docker-compose delegates builds to the engine's buildkit, so execution uses the patched engine version
+  - id: CVE-2026-33747
+    statement: Cannot patch compiled Go binary. Low risk — trivy uses buildkit for analysis only, compose delegates to engine (patched). Awaiting upstream releases with buildkit 0.28.1+
+
+  # BuildKit unauthorized file access via Git URL fragment subdir components
+  # Affects trivy (buildkit v0.26.2), docker-compose (buildkit v0.27.1) — compiled Go binaries
+  # Same exploitability assessment as CVE-2026-33747 above
+  - id: CVE-2026-33748
+    statement: Cannot patch compiled Go binary. Low risk — trivy uses buildkit for analysis only, compose delegates to engine (patched). Awaiting upstream releases with buildkit 0.28.1+
+
 misconfigurations:
   # DL3002/DS-0002: Last USER should not be root
   # This base image runs as root by design for Docker-in-Docker and package management

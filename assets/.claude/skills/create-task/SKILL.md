@@ -1,3 +1,10 @@
+---
+name: create-task
+description: Create a new standalone task with PRP template in the global planning directory.
+disable-model-invocation: true
+argument-hint: <task-name>
+---
+
 # Create a new task in the planning directory
 
 ## Usage
@@ -15,7 +22,7 @@ Your goal is to generate a new PRP for a specific task and create a document (us
 1. Get the task name if not already provided (**MANDATORY**: You may not proceed without a task name).
 2. Create the task with this command:
    ```bash
-   /workspace/.claude/bin/create-task <task-name>
+   /workspace/.claude/bin/create-task $ARGUMENTS
    ```
 3. You must read the files in this directory before beginning to plan: `/workspace/project/.claude/prp-templates`
 4. Suggest a PRP template that seems to reprosent the requested task's implementation requirements. 
@@ -24,18 +31,7 @@ Your goal is to generate a new PRP for a specific task and create a document (us
 **IMPORTANT:** You are not implementing. Your success criteria is that you have created a task with a plan in it that the user has approved.
 
 ## Parameters
-- `<task-name>`: The name of the task (will be used as the filename without .md extension)
-
-## Example
-```
-/create-task implement-user-authentication
-```
-
-This will create a file at `/workspace/project/ai-playground/tasks/planning/implement-user-authentication.md` with:
-- Standard task template
-- Status set to "planning"
-- Timestamps for creation and last update
-- Placeholder sections for project intention, acceptance criteria, etc.
+- `$ARGUMENTS`: The name of the task (will be used as the filename without .md extension)
 
 ## Task Workflow
 1. **planning** - Task is being defined
@@ -50,7 +46,7 @@ After creating a task:
 3. Always identify and seperate Infrastructure vs Application-Level concerns
 4. Use `/move-task <task-name> approved` when ready to begin
 
-## Related Commands
+## Related Skills
 - `/list-tasks` - View all tasks by status
 - `/move-task` - Move a task to a different status
 - `/create-project` - Create a larger project PRP

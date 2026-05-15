@@ -1,8 +1,8 @@
 ---
 name: scan-and-fix-cve
-description: Analyse and fix CVE vulnerabilities in Docker images
+description: Analyse and fix CVE vulnerabilities in Docker images. Use when asked to address CVE failures, fix security scan results, or remediate vulnerabilities.
 disable-model-invocation: true
-argument-hint: "[path-to-cve-report]"
+argument-hint: [path-to-cve-report]
 ---
 
 ## CRITICAL: Always Read Project-Specific Instructions First

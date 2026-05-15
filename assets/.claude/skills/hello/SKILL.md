@@ -1,3 +1,9 @@
+---
+name: hello
+description: Initialize workspace, verify CLAUDE.md is loaded, and set up ai-playground. Run at the start of every conversation.
+disable-model-invocation: true
+---
+
 # Begin Claude Code conversation workflows (always run this)
 
 1. **Verify CLAUDE.md is loaded:**

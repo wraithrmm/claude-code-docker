@@ -1,6 +1,11 @@
-# /list-project-tasks
+---
+name: list-project-tasks
+description: List all tasks within a specific project, grouped by workflow status.
+disable-model-invocation: true
+argument-hint: <project-name>
+---
 
-List all tasks within a specific project, grouped by their current status.
+# List tasks within a specific project
 
 ## Usage
 ```
@@ -11,13 +16,7 @@ List all tasks within a specific project, grouped by their current status.
 Displays all tasks that belong to a specific project, organized by their workflow status (planning, approved, in-progress, completed). This command helps you track progress on individual project tasks and see the overall task distribution for a project.
 
 ## Parameters
-- `<project-name>`: The name of the project whose tasks you want to list (required)
-
-## Examples
-```bash
-/list-project-tasks my-feature
-/list-project-tasks user-authentication
-```
+- `$ARGUMENTS`: The name of the project whose tasks you want to list (required)
 
 ## Output
 ```
@@ -68,12 +67,7 @@ ai-playground/projects/[project-name]/tasks/
 └── completed/     # Finished tasks
 ```
 
-## Task Information Displayed
-- Task name (derived from filename)
-- Creation date
-- PRP template used (if applicable)
-
-## Related Commands
+## Related Skills
 - `/list-projects` - List all projects
 - `/create-project-task` - Create a new task within a project
 - `/list-tasks` - List all global tasks (not project-specific)

@@ -1,6 +1,11 @@
-# /create-project-task
+---
+name: create-project-task
+description: Create a new task within a specific project's directory structure.
+disable-model-invocation: true
+argument-hint: <project-name> <task-name>
+---
 
-Create a new task within a specific project directory
+# Create a task within a specific project
 
 ## Usage
 ```
@@ -13,8 +18,8 @@ Creates a new task file within an existing project's task directory structure. T
 The task is created in the project's `planning` directory and follows the standard task file format with sections for Project Intention, Acceptance Criteria, Implementation Approach, Technical Details, and Notes.
 
 ## Parameters
-- `<project-name>`: The name of the existing project where the task should be created (required)
-- `<task-name>`: The name of the new task to create (required)
+- `$0`: The name of the existing project where the task should be created (required)
+- `$1`: The name of the new task to create (required)
 
 ## Examples
 ```bash
@@ -34,9 +39,9 @@ When successful:
 - **Project not found**: Suggests using `/create-project` first and exits with code 1
 - **Task already exists**: Prevents duplicate creation and exits with code 1
 
-## Related Commands
+## Related Skills
 - `/create-project` - Create a new project before adding tasks
-- `/move-project-task` - Move task between workflow states (planning → approved → in-progress → completed)
+- `/move-project-task` - Move task between workflow states (planning -> approved -> in-progress -> completed)
 - `/list-projects` - View all projects and their status
 - `/create-task` - Create a task in the global tasks directory (not project-specific)
 

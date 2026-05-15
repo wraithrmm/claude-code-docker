@@ -1,8 +1,15 @@
+---
+name: continue-project
+description: Resume work on an existing project by reading all PRP files and summarizing pending work.
+disable-model-invocation: true
+argument-hint: <project-name|number>
+---
+
 # Continue an existing project you have underway
 
 1. **Run the continue project script with project name:**
    ```bash
-   /workspace/.claude/bin/continue-project <project-name|number>
+   /workspace/.claude/bin/continue-project $ARGUMENTS
    ```
 
 2. **After script runs, read the project files:**
@@ -20,21 +27,21 @@
    - Identify blockers from notes.md or status
    - Format output as:
      ```
-     📋 Resuming Project: [name]
+     Resuming Project: [name]
      
      Original Objectives:
      - [objective 1]
      - [objective 2]
      
-     Completed Tasks: ✅
+     Completed Tasks:
      - [completed task 1]
      - [completed task 2]
      
-     Pending Tasks: ⏳
+     Pending Tasks:
      - [pending task 1]
      - [pending task 2]
      
-     Current Blockers: 🚧
+     Current Blockers:
      - [blocker if any]
      
      Next Steps:
