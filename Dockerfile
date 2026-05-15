@@ -162,12 +162,16 @@ RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1","mini
 # This replicates your TypeScript choice and browser installation choice
 RUN npm install @playwright/test typescript @types/node
 
+# Pin Playwright's browser cache to a system-wide path so it survives
+# the entrypoint's switch from root to the dynamic host-UID user.
+# Without this, browsers land in /root/.cache and are invisible at runtime.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 # Install Playwright browsers supported on ARM64
 # Note: Chrome (Google Chrome) is not available on ARM64 Linux, only Chromium
-RUN npx playwright install chromium firefox webkit
-
-# Install system dependencies for browsers
-RUN npx playwright install-deps chromium firefox webkit
+RUN npx playwright install chromium firefox webkit && \
+    npx playwright install-deps chromium firefox webkit && \
+    chmod -R a+rX /ms-playwright
 
 # Install Playwright MCP server
 RUN npm install -g @playwright/mcp@latest
