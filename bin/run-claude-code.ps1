@@ -209,7 +209,7 @@ function Start-Container {
 
     if (-not $NoDockerSock) {
         $dockerArgs += '-v'
-        $dockerArgs += '//./pipe/docker_engine:/var/run/docker.sock'
+        $dockerArgs += '/var/run/docker.sock:/var/run/docker.sock'
     }
 
     if ($script:WorkspaceAvailable) {
