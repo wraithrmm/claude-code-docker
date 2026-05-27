@@ -151,6 +151,33 @@ vulnerabilities:
   - id: CVE-2026-39883
     statement: Not exploitable - vulnerable kenv code path is BSD/Solaris-only (host_id_bsd.go build tag) and not compiled on our Linux image; also requires local attacker PATH control. Cannot patch compiled Go binary, awaiting upstream release with go.opentelemetry.io/otel/sdk 1.43.0+
 
+  # === Surfaced by rebuild on 2026-05-27 (newer binaries + newer Trivy DB) ===
+  # Go stdlib html/template XSS + httputil.ReverseProxy smuggling (fixed Go 1.25.10 / 1.26.3)
+  # Affects terraform-docs, trivy (compiled Go binaries)
+  # Verified via pkg.go.dev/vuln (GO-2026-4982 / 4980) + golang-announce Go 1.25.10/1.26.3 release
+  - id: CVE-2026-39823
+    statement: Not exploitable - html/template meta-tag escaper-bypass XSS; these CLI tools do not render html/template output to a browser. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+  - id: CVE-2026-39825
+    statement: Not exploitable - httputil.ReverseProxy query-parameter smuggling; these tools do not run an HTTP ReverseProxy server. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+  - id: CVE-2026-39826
+    statement: Not exploitable - html/template script-tag escaper-bypass XSS; these CLI tools do not render html/template output to a browser. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+
+  # containerd runAsNonRoot evasion via CRI-plugin user-ID type confusion
+  # Affects dockerd, trivy, docker-compose (compiled Go binaries)
+  # Fixed containerd 2.2.4 / 2.0.9 / 2.3.1 (1.7.32 for the v1 module)
+  - id: CVE-2026-46680
+    statement: Low risk - affected code is containerd's CRI-plugin runAsNonRoot enforcement, a Kubernetes/kubelet runtime concern; trivy and docker-compose embed containerd only as a library (image pull/extract, API orchestration) and never run the CRI user-ID path, and dockerd here is a single-tenant developer Docker-in-Docker engine, not a CRI node. Cannot patch compiled Go binary, awaiting upstream rebuilds with containerd 2.2.4+ (1.7.32+ for the v1 module)
+
+  # Docker Engine daemon vulnerabilities matched against the docker/docker module in docker-compose
+  # Vulnerable code is server-side in github.com/docker/docker/daemon (runs in dockerd); docker-compose
+  # links the module only as a client SDK and never executes the daemon path (same basis as CVE-2026-34040)
+  # Fixed engine-side in Docker Engine 29.5.1+ / moby v2.0.0-beta.14; no fix for the legacy module path
+  # RESIDUAL RISK: these are real for the host Docker Engine - ensure hosts running dockerd are on Engine 29.5.1+
+  - id: CVE-2026-41567
+    statement: Not exploitable from this binary - RCE lives in the Docker Engine daemon (github.com/docker/docker/daemon) handling PUT /containers/archive; docker-compose links docker/docker only as a client SDK and does not run the daemon path. Fixed engine-side in Docker Engine 29.5.1+; no fix for the legacy module path. Patch the host engine separately.
+  - id: CVE-2026-42306
+    statement: Not exploitable from this binary - TOCTOU bind-mount redirection lives in the Docker Engine daemon (github.com/docker/docker/daemon) docker cp path; docker-compose links docker/docker only as a client SDK and does not run the daemon path. Fixed engine-side in Docker Engine 29.5.1+; no fix for the legacy module path. Patch the host engine separately.
+
 misconfigurations:
   # DL3002/DS-0002: Last USER should not be root
   # This base image runs as root by design for Docker-in-Docker and package management
