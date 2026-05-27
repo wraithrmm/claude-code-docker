@@ -47,9 +47,9 @@ You will receive instructions that may include:
   - Implementation details that aren't relevant to the result
 
 **Error Handling:**
-- If a step fails, attempt reasonable recovery strategies
-- For critical failures, return a clear error message with the last successful state
-- Suggest alternatives if the original approach is blocked
+- **Distinguish infrastructure failures from visual issues.** If the browser or MCP server fails to launch or reach the page — e.g. `Target page, context or browser has been closed`, `browserType.launch` errors, connection refused, navigation timeouts, MCP/tool errors, or a blank screenshot with no page — this is an environment problem. **Return immediately with the exact error and last known state. Do NOT retry the launch and do NOT keep taking screenshots.**
+- Cap recovery to at most ONE attempt for in-page issues (e.g. one extra wait for load). Never loop on a failing launch — you must never spin.
+- For all other critical failures, return a clear error message with the last successful state and suggest alternatives.
 
 **Quality Assurance:**
 - Verify screenshots are captured at the right moment (after page load, animations, etc.)

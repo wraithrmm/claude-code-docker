@@ -6,25 +6,31 @@ This document provides comprehensive guidance for using Playwright to verify vis
 
 **REQUIREMENT**: ALL template and CSS changes MUST be verified using Playwright before being considered complete. This is non-negotiable.
 
+## STOP FIRST: Infrastructure failure is NOT a visual defect
+
+Before applying any iterative workflow below, classify every failure:
+
+- **Infrastructure failure** — the browser or MCP server cannot start or reach the page. Symptoms include: `Target page, context or browser has been closed`, `browserType.launch` errors, connection refused, navigation timeouts, "MCP server" / tool errors, or a blank/black screenshot with no page.
+  - **STOP immediately. Do NOT retry the launch and do NOT take more screenshots.** Screenshots cannot fix the environment.
+  - Do at most ONE diagnostic check (e.g. read the exact error), then **report the precise error to the user and stop**. These are environment problems, not visual problems.
+- **Visual defect** — the page rendered, but layout/styling is wrong. Only these enter the bounded verification cycle below.
+
+Never treat a launch/navigation failure as "not perfect yet" and loop on it. A failure to launch is a hard stop, not an iteration.
+
+## Container environment
+
+This runs in a headless Docker container: **no display server**, browser runs **headless** as **root**. The Playwright MCP server is preconfigured with `--headless --no-sandbox --isolated --ignore-https-errors`. Headed/interactive browser sessions are not available here — do not attempt them.
+
 ## SSL Certificate Handling
 
-Development environments will always show SSL certificate warnings. This is expected behavior.
+Development environments use self-signed certificates. The MCP server already runs with `--ignore-https-errors`, so navigating to `https://localhost/` (or similar dev URLs) loads directly — there is **no warning page to click through**.
 
-### How to Handle SSL Warnings:
-1. When navigating to `https://localhost/` or similar dev URLs
-2. Browser will show security warning page
-3. Click **"Advanced"** button
-4. Click **"Accept the Risk and Continue"** (Firefox) or equivalent
-5. Page will load normally after accepting
-
-### Example Workflow:
 ```javascript
-// Navigate to page
+// Just navigate; dev-cert warnings are ignored automatically
 mcp__playwright__browser_navigate("https://localhost/")
-// If SSL warning appears, click through it
-mcp__playwright__browser_click("Advanced")
-mcp__playwright__browser_click("Accept the Risk and Continue")
 ```
+
+Do NOT look for an "Advanced" / "Accept the Risk" interstitial — headless chromium with `--ignore-https-errors` never shows one. If navigation still fails, treat it as an **infrastructure failure** (see "STOP FIRST" above): report the error and stop; do not retry repeatedly.
 
 ## Screenshot Management
 
@@ -60,12 +66,13 @@ mcp__playwright__browser_click("Accept the Risk and Continue")
    - Make necessary CSS/template changes
    - Be specific about what you're fixing
 
-4. **Verification Cycle**
+4. **Verification Cycle (bounded — max 3 iterations)**
    - Take new screenshot
    - Compare with previous
    - Identify remaining issues
    - If issues remain, return to step 3
-   - Continue until perfect
+   - Stop after at most 3 fix/screenshot iterations. If visual defects still remain, report the remaining issues to the user and stop — do not loop indefinitely.
+   - If a screenshot step fails to capture a rendered page, that is an infrastructure failure (see "STOP FIRST") — stop and report, do not count it as an iteration.
 
 5. **Final Validation**
    - Confirm all issues resolved
@@ -225,7 +232,7 @@ The sub-agent will handle SSL warnings, wait for page loads, and return only the
 ✅ Multiple iterations with screenshots
 ✅ Test all viewport sizes
 ✅ Store all screenshots properly
-✅ Continue until zero visual defects
+✅ Iterate on visual defects within the bounded loop (max 3), then report any remainder
 
 ## Advanced Techniques
 
@@ -296,4 +303,4 @@ Visual verification through Playwright is MANDATORY for all template and CSS wor
 - Early detection of visual regressions
 - Professional delivery standards
 
-Remember: **Iterate until perfect** - This is not optional.
+Remember: **Iterate to fix visual defects, but within a bounded loop (max 3 iterations)** — then report any remaining issues and stop. A browser/MCP launch or navigation failure is an infrastructure problem: stop and report it immediately, never loop on it (see "STOP FIRST: Infrastructure failure is NOT a visual defect").
