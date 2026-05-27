@@ -24,18 +24,11 @@ export default defineConfig({
     },
 
     // Configure projects for major browsers
+    // Only Chromium is installed in the container (shared via PLAYWRIGHT_BROWSERS_PATH)
     projects: [
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
-        },
-        {
-            name: 'firefox',
-            use: { ...devices['Desktop Firefox'] },
-        },
-        {
-            name: 'webkit',
-            use: { ...devices['Desktop Safari'] },
         },
     ],
 });

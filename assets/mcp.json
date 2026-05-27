@@ -2,7 +2,7 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp", "--browser", "firefox", "--output-dir", "/Users/claude-code/screenshots"]
+      "args": ["@playwright/mcp", "--browser", "chromium", "--headless", "--no-sandbox", "--isolated", "--ignore-https-errors", "--executable-path", "/ms-playwright/chromium-current/chrome-linux/chrome", "--output-dir", "/Users/claude-code/screenshots"]
     }
   }
 }

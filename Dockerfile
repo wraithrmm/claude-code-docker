@@ -38,6 +38,7 @@ RUN apt-get update && \
     python3 \
     python3-pip \
     software-properties-common \
+    tmux \
     tree \
     unzip \
     wget \
@@ -101,7 +102,12 @@ RUN wget -O - https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/sha
     rm -rf /var/tmp/* && \
     pip3 install --no-cache-dir --break-system-packages \
     pre-commit \
-    checkov && \
+    checkov \
+    pytest \
+    pytest-cov \
+    pytest-mock \
+    pytest-asyncio \
+    pytest-xdist && \
     ARCH=$(dpkg --print-architecture) && \
     TRIVY_ARCH=$([ "$ARCH" = "arm64" ] && echo "ARM64" || echo "64bit") && \
     echo "=== Downloading terraform-docs for ${ARCH} ===" && \
@@ -158,16 +164,21 @@ WORKDIR /workspace
 # CVE-2026-31802: tar <7.5.11 (Drive-relative symlink traversal)
 RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1","minimatch":">=10.2.3","tar":">=7.5.11"}}' > /workspace/package.json
 
+# Shared, world-readable browser cache so the gosu runtime user (and all users)
+# share one copy. Inherited at runtime via the image ENV; gosu preserves it.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 # Install Playwright with TypeScript support
 # This replicates your TypeScript choice and browser installation choice
 RUN npm install @playwright/test typescript @types/node
 
-# Install Playwright browsers supported on ARM64
-# Note: Chrome (Google Chrome) is not available on ARM64 Linux, only Chromium
-RUN npx playwright install chromium firefox webkit
+# Install the Chromium browser into the shared path and make it readable/traversable
+# for non-root users (go+rX = read + dir-traverse, no write).
+RUN npx playwright install chromium && chmod -R go+rX /ms-playwright && \
+    ln -sfn "$(ls -d /ms-playwright/chromium-[0-9]*)" /ms-playwright/chromium-current
 
-# Install system dependencies for browsers
-RUN npx playwright install-deps chromium firefox webkit
+# Install system dependencies for the Chromium browser
+RUN npx playwright install-deps chromium
 
 # Install Playwright MCP server
 RUN npm install -g @playwright/mcp@latest

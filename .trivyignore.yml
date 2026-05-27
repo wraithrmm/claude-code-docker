@@ -112,6 +112,45 @@ vulnerabilities:
   - id: CVE-2026-33748
     statement: Cannot patch compiled Go binary. Low risk — trivy uses buildkit for analysis only, compose delegates to engine (patched). Awaiting upstream releases with buildkit 0.28.1+
 
+  # === Go 1.25.9/1.26.2 + 1.25.10/1.26.3 security releases (scanned 2026-05-27) ===
+  # Go stdlib crypto/x509 + crypto/tls DoS set (April 2026, fixed Go 1.25.9 / 1.26.2)
+  # Affects terraform-docs, docker-compose (compiled Go binaries)
+  # Fixed versions verified via pkg.go.dev/vuln (GO-2026-4947 / 4946 / 4870)
+  - id: CVE-2026-32280
+    statement: Not exploitable - x509/TLS chain-building DoS only reachable when verifying attacker-supplied client cert chains; these tools act as TLS clients, not cert-verifying servers. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.9+ or 1.26.2+
+  - id: CVE-2026-32281
+    statement: Low risk - x509 policy-validation DoS only reachable when verifying attacker-supplied chains to a trusted root; not a path these CLI tools exercise. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.9+ or 1.26.2+
+  - id: CVE-2026-32283
+    statement: Low risk - TLS 1.3 KeyUpdate deadlock requires connecting to a malicious TLS endpoint and only hangs a single short-lived CLI connection. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.9+ or 1.26.2+
+
+  # Go stdlib net / net/http / net/mail set (May 2026, fixed Go 1.25.10 / 1.26.3)
+  # Affects terraform-docs, trivy, docker-compose (compiled Go binaries)
+  # Fixed versions verified via pkg.go.dev/vuln (GO-2026-4981 / 4918 / 4986 / 4971 / 4977)
+  - id: CVE-2026-33811
+    statement: Low risk - cgo DNS resolver double-free requires a cgo build plus an explicit LookupCNAME, neither typical for these pure-Go CLI binaries. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+  - id: CVE-2026-33814
+    statement: Low risk - HTTP/2 client infinite loop requires connecting to a malicious HTTP/2 server and only impacts a single short-lived CLI run. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+  - id: CVE-2026-39820
+    statement: Not exploitable - net/mail address parsing is not used by these tools. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+  - id: CVE-2026-39836
+    statement: Not exploitable - Windows-only Dial/LookupPort panic; this image runs on Linux. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+  - id: CVE-2026-42499
+    statement: Not exploitable - net/mail address parsing (consumePhrase) is not used by these tools. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
+
+  # go-git / go-billy vulnerabilities bundled in the trivy binary
+  # Only exercised during `trivy repo` git clone/checkout, not image/fs/SBOM scans
+  # Note: CVE-2026-44973 description and fixed version taken from the Trivy DB record
+  # (go-billy v5.8.0 -> 5.9.0, path traversal); NVD primary source not independently confirmed
+  - id: CVE-2026-44973
+    statement: Low risk - go-billy path traversal only exercised during trivy repo git clone/checkout and requires scanning a maliciously-crafted repo. Cannot patch compiled Go binary, awaiting upstream trivy release with go-billy 5.9.0+
+  - id: CVE-2026-45022
+    statement: Not exploitable - trivy scanning does not rely on go-git commit/tag signature verification; impact requires scanning an attacker-crafted repo and trusting go-git signature interpretation. Cannot patch compiled Go binary, awaiting upstream trivy release with go-git 5.19.0+
+
+  # OpenTelemetry Go SDK kenv PATH hijacking bundled in docker-compose
+  # Follow-up to CVE-2026-24051; vulnerable code path is BSD/Solaris-only
+  - id: CVE-2026-39883
+    statement: Not exploitable - vulnerable kenv code path is BSD/Solaris-only (host_id_bsd.go build tag) and not compiled on our Linux image; also requires local attacker PATH control. Cannot patch compiled Go binary, awaiting upstream release with go.opentelemetry.io/otel/sdk 1.43.0+
+
 misconfigurations:
   # DL3002/DS-0002: Last USER should not be root
   # This base image runs as root by design for Docker-in-Docker and package management

@@ -221,6 +221,13 @@ fi
 # Add project bin scripts to PATH for convenient access
 export PATH="/workspace/project/.claude/bin:/workspace/.claude/bin:$PATH"
 
+# Pin the workflow project root to the mounted codebase. The claude-workflow scripts
+# default PROJECT_ROOT to "git rev-parse --show-toplevel || pwd", which resolves to
+# /workspace when invoked from the container's default working directory, placing
+# ai-playground at /workspace/ai-playground. The codebase is always mounted at
+# /workspace/project, so pin it there (overridable) to keep ai-playground under it.
+export PROJECT_ROOT="${PROJECT_ROOT:-/workspace/project}"
+
 # Skip user switching in CI environments or if running as root
 if [[ "$CI" == "true" ]] || [[ "$RUN_AS_ROOT" == "true" ]] || [[ $PROJECT_UID -eq 0 ]]; then
     echo "Running as root..."
