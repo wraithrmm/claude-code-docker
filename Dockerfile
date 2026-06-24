@@ -73,6 +73,10 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
 
 # Install Node.js (required for Claude Code)
 # Using NodeSource repository for latest LTS
+# Security: remove corepack after install. corepack vendors undici inside corepack.cjs
+# (CVE-2026-12151, WebSocket DoS) and is the sole carrier of that finding. It only
+# provides yarn/pnpm shims, which this npm-only image never uses, and Node 25+ no
+# longer bundles it. npm itself is a separate global module and is unaffected.
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install --no-install-recommends -y \
     nodejs && \
@@ -84,7 +88,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     rm -rf /tmp/* && \
     rm -rf /var/tmp/* && \
     node --version && \
-    npm --version
+    npm --version && \
+    npm uninstall -g corepack || true; \
+    rm -rf /usr/lib/node_modules/corepack && \
+    rm -f /usr/bin/corepack /usr/local/bin/corepack && \
+    ! command -v corepack
 
 # Install Terraform and dependencies
 # Detect architecture for binary downloads (amd64 or arm64)
@@ -102,26 +110,16 @@ RUN wget -O - https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/sha
     rm -rf /var/tmp/* && \
     pip3 install --no-cache-dir --break-system-packages \
     pre-commit \
-    checkov \
     pytest \
     pytest-cov \
     pytest-mock \
     pytest-asyncio \
     pytest-xdist && \
     ARCH=$(dpkg --print-architecture) && \
-    TRIVY_ARCH=$([ "$ARCH" = "arm64" ] && echo "ARM64" || echo "64bit") && \
-    echo "=== Downloading terraform-docs for ${ARCH} ===" && \
-    TERRAFORM_DOCS_URL=$(curl -s https://api.github.com/repos/terraform-docs/terraform-docs/releases/latest | jq -r ".assets[] | select(.name | test(\"linux-${ARCH}.tar.gz$\")) | .browser_download_url") && \
-    echo "terraform-docs URL: ${TERRAFORM_DOCS_URL}" && \
-    curl -fsSL "${TERRAFORM_DOCS_URL}" -o terraform-docs.tgz && tar -xzf terraform-docs.tgz terraform-docs && rm terraform-docs.tgz && chmod +x terraform-docs && mv terraform-docs /usr/bin/ && \
     echo "=== Downloading tflint for ${ARCH} ===" && \
     TFLINT_URL=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | jq -r ".assets[] | select(.name | test(\"linux_${ARCH}.zip$\")) | .browser_download_url") && \
     echo "tflint URL: ${TFLINT_URL}" && \
     curl -fsSL "${TFLINT_URL}" -o tflint.zip && unzip tflint.zip && rm tflint.zip && mv tflint /usr/bin/ && \
-    echo "=== Downloading trivy for ${TRIVY_ARCH} ===" && \
-    TRIVY_URL=$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r ".assets[] | select(.name | test(\"Linux-${TRIVY_ARCH}.tar.gz$\")) | .browser_download_url") && \
-    echo "trivy URL: ${TRIVY_URL}" && \
-    curl -fsSL "${TRIVY_URL}" -o trivy.tar.gz && tar -xzf trivy.tar.gz trivy && rm trivy.tar.gz && mv trivy /usr/bin && \
     npm install -g markdownlint-cli
 
 # Install Claude Code and dependencies
@@ -138,19 +136,37 @@ RUN npm install -g \
 # CVE-2026-33671: picomatch <4.0.4 (ReDoS via crafted extglob patterns)
 #   picomatch affected locations: npm/tinyglobby/picomatch, markdownlint-cli/tinyglobby/picomatch
 #   No upstream fix yet: npm <=11.12.1 and markdownlint-cli 0.48.0 both bundle picomatch 4.0.3
+# CVE-2026-12151: undici <6.27.0 (DoS via unbounded WebSocket memory growth)
+#   npm bundles undici transitively via node-gyp ("undici": "^6.25.0"); 6.27.0 is the
+#   fixed release on the 6.x line and stays within node-gyp's ^6 constraint.
 RUN set -e && \
     NPM_NM=/usr/lib/node_modules/npm/node_modules && \
     mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
     npm init -y --silent && \
-    npm install minimatch@10.2.3 tar@7.5.11 picomatch@4.0.4 --install-strategy=nested --silent && \
-    rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" && \
+    npm install minimatch@10.2.3 tar@7.5.11 picomatch@4.0.4 undici@6.27.0 --install-strategy=nested --silent && \
+    rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" "$NPM_NM/undici" && \
     cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
     cp -r node_modules/tar "$NPM_NM/tar" && \
+    cp -r node_modules/undici "$NPM_NM/undici" && \
     find /usr/lib/node_modules -name picomatch -type d \
       -exec sh -c 'v=$(node -p "require(\"$1/package.json\").version"); [ "$v" = "4.0.3" ] && rm -rf "$1" && cp -r node_modules/picomatch "$1" && echo "Patched $1: $v -> 4.0.4"' _ {} \; && \
     rm -rf /tmp/npm-patches && \
     node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
-    node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)"
+    node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)" && \
+    node -e "console.log('undici: ' + require('$NPM_NM/undici/package.json').version)"
+
+# Configure git for shared Windows + Linux checkouts.
+# When the same working tree is used from a Windows host and this Linux container,
+# git would otherwise report every file as modified: Windows checks files out with
+# CRLF line endings and without the POSIX executable bit. Setting these system-wide
+# applies the policy to both root and the runtime user the entrypoint creates.
+#   core.autocrlf=input  - treat a CRLF working tree as equal to the LF index
+#                          (no spurious diff) and never write CRLF back on checkout.
+#   core.filemode=false  - ignore executable-bit differences between the platforms.
+RUN git config --system core.autocrlf input && \
+    git config --system core.filemode false && \
+    echo "git core.autocrlf=$(git config --system --get core.autocrlf)" && \
+    echo "git core.filemode=$(git config --system --get core.filemode)"
 
 # Create a workspace directory for Claude Code projects
 RUN mkdir -p /workspace
