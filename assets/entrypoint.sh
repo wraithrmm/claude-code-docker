@@ -189,6 +189,107 @@ elif [[ ! -f "/workspace/.mcp.json" ]]; then
     echo "Warning: No MCP configuration found - Claude Code will run without MCP servers"
 fi
 
+# Decide which of the configured MCP servers Claude Code loads and auto-approves.
+# Selected servers go into enabledMcpjsonServers (loaded and pre-approved, so no
+# interactive trust prompt can block this session or any agent it spawns); every
+# other configured server goes into disabledMcpjsonServers (never loaded, never
+# prompted), keeping unused servers from consuming context. Selection precedence:
+#   1. CLAUDE_MCP_SERVERS env (comma-separated names, "all", or "none")
+#   2. interactive tick-list when a terminal is attached
+#   3. "none" otherwise (non-interactive / CI)
+prompt_mcp_selection() {
+    local servers="$1"
+    local -a available=()
+    mapfile -t available <<< "$servers"
+
+    {
+        printf '\n'
+        printf 'Configured MCP servers (each one loaded consumes context):\n'
+        local idx=1 name
+        for name in "${available[@]}"; do
+            printf '  %d) %s\n' "$idx" "$name"
+            idx=$((idx + 1))
+        done
+        printf 'Enable which? comma-separated numbers or names, "all", or Enter for none: '
+    } > /dev/tty
+
+    local reply
+    read -r reply < /dev/tty || reply=""
+
+    case "$reply" in
+        all|ALL) printf 'all'; return 0 ;;
+        "") printf 'none'; return 0 ;;
+    esac
+
+    local resolved="" token name
+    local -a tokens=()
+    IFS=',' read -ra tokens <<< "$reply"
+    for token in "${tokens[@]}"; do
+        token="${token//[[:space:]]/}"
+        [[ -z "$token" ]] && continue
+        if [[ "$token" =~ ^[0-9]+$ ]]; then
+            name="${available[$((token - 1))]:-}"
+        else
+            name="$token"
+        fi
+        [[ -n "$name" ]] && resolved="${resolved:+$resolved,}$name"
+    done
+    printf '%s' "${resolved:-none}"
+}
+
+configure_mcp_selection() {
+    local mcp_file="/workspace/.mcp.json"
+    local settings_file="/workspace/.claude/settings.json"
+
+    [[ -s "$mcp_file" ]] || return 0
+    local all_servers
+    all_servers=$(jq -r '.mcpServers // {} | keys[]' "$mcp_file" 2>/dev/null) || return 0
+    [[ -n "$all_servers" ]] || return 0
+
+    local selection
+    if [[ -n "$CLAUDE_MCP_SERVERS" ]]; then
+        selection="$CLAUDE_MCP_SERVERS"
+        echo "MCP selection provided via CLAUDE_MCP_SERVERS: $selection"
+    elif [[ "$CI" != "true" && -t 0 && -t 1 ]]; then
+        selection=$(prompt_mcp_selection "$all_servers")
+    else
+        selection="none"
+    fi
+
+    local enabled_csv
+    case "$selection" in
+        all|ALL) enabled_csv=$(printf '%s' "$all_servers" | paste -sd, -) ;;
+        none|NONE|"") enabled_csv="" ;;
+        *) enabled_csv="$selection" ;;
+    esac
+
+    local all_json wanted_json enabled_json disabled_json
+    all_json=$(printf '%s\n' "$all_servers" | jq -R . | jq -s 'map(select(. != ""))')
+    wanted_json=$(jq -cn --arg csv "$enabled_csv" \
+        '[$csv | split(",")[] | gsub("^\\s+|\\s+$"; "")] | map(select(length > 0))')
+    enabled_json=$(jq -cn --argjson all "$all_json" --argjson want "$wanted_json" \
+        '$all | map(select(. as $s | $want | index($s)))')
+    disabled_json=$(jq -cn --argjson all "$all_json" --argjson en "$enabled_json" \
+        '$all - $en')
+
+    mkdir -p "$(dirname "$settings_file")"
+    if [[ -s "$settings_file" ]] && jq empty "$settings_file" 2>/dev/null; then
+        local tmp
+        tmp=$(mktemp)
+        jq --argjson en "$enabled_json" --argjson dis "$disabled_json" \
+           '. + {enableAllProjectMcpServers: false, enabledMcpjsonServers: $en, disabledMcpjsonServers: $dis}' \
+           "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+    else
+        jq -n --argjson en "$enabled_json" --argjson dis "$disabled_json" \
+           '{enableAllProjectMcpServers: false, enabledMcpjsonServers: $en, disabledMcpjsonServers: $dis}' \
+           > "$settings_file"
+    fi
+
+    echo "Configured MCP auto-approval: enabled=[$(printf '%s' "$enabled_json" | jq -r 'join(",")')] disabled=[$(printf '%s' "$disabled_json" | jq -r 'join(",")')]"
+}
+
+configure_mcp_selection
+
 # Initialize Playwright test directory if needed
 if [[ ! -d "/Users/claude-code/tests/playwright" ]]; then
     echo "Creating Playwright test directory structure..."

@@ -1084,3 +1084,93 @@ load test_helper
     assert_success
     refute_output_contains "Normalizing git line-endings"
 }
+
+# Test 16: MCP server selection (enabled/disabled auto-approval lists)
+
+@test "16.1: default selection disables all MCP servers (no prompt)" {
+    create_file "$TEST_WORKSPACE/.mcp.json" '{"mcpServers":{"playwright":{"command":"npx"},"aws-docs":{"command":"uvx"}}}'
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Configured MCP auto-approval:"
+    assert_file_exists "$TEST_WORKSPACE/.claude/settings.json"
+
+    run jq -r '.enableAllProjectMcpServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output "false"
+    run jq -c '.enabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output "[]"
+    run jq -c '.disabledMcpjsonServers | sort' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '["aws-docs","playwright"]'
+}
+
+@test "16.2: CLAUDE_MCP_SERVERS enables only the named server" {
+    create_file "$TEST_WORKSPACE/.mcp.json" '{"mcpServers":{"playwright":{"command":"npx"},"aws-docs":{"command":"uvx"}}}'
+
+    run_entrypoint_with_env CI=true CLAUDE_MCP_SERVERS=playwright HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    run jq -c '.enabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '["playwright"]'
+    run jq -c '.disabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '["aws-docs"]'
+}
+
+@test "16.3: 'all' enables every configured server" {
+    create_file "$TEST_WORKSPACE/.mcp.json" '{"mcpServers":{"playwright":{"command":"npx"},"aws-docs":{"command":"uvx"}}}'
+
+    run_entrypoint_with_env CI=true CLAUDE_MCP_SERVERS=all HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    run jq -c '.enabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '["aws-docs","playwright"]'
+    run jq -c '.disabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '[]'
+}
+
+@test "16.4: preserves existing settings.json keys when writing MCP selection" {
+    create_file "$TEST_WORKSPACE/.mcp.json" '{"mcpServers":{"playwright":{"command":"npx"}}}'
+    create_file "$TEST_WORKSPACE/.claude/settings.json" '{"env":{"DISABLE_TELEMETRY":"1"},"teammateMode":"tmux"}'
+
+    run_entrypoint_with_env CI=true CLAUDE_MCP_SERVERS=playwright HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    # Pre-existing keys survive the merge
+    run jq -r '.env.DISABLE_TELEMETRY' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output "1"
+    run jq -r '.teammateMode' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output "tmux"
+    # MCP keys are added
+    run jq -c '.enabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '["playwright"]'
+}
+
+@test "16.5: no MCP configuration leaves settings untouched" {
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    refute_output_contains "Configured MCP auto-approval:"
+    assert_file_not_exists "$TEST_WORKSPACE/.claude/settings.json"
+}
+
+@test "16.6: invalid MCP configuration does not write a selection or fail" {
+    create_file "$TEST_WORKSPACE/.mcp.json" '{"mcpServers":{'
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    refute_output_contains "Configured MCP auto-approval:"
+    assert_file_not_exists "$TEST_WORKSPACE/.claude/settings.json"
+}
+
+@test "16.7: unknown server names in the selection are ignored" {
+    create_file "$TEST_WORKSPACE/.mcp.json" '{"mcpServers":{"playwright":{"command":"npx"}}}'
+
+    run_entrypoint_with_env CI=true CLAUDE_MCP_SERVERS=playwright,bogus HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    run jq -c '.enabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '["playwright"]'
+    run jq -c '.disabledMcpjsonServers' "$TEST_WORKSPACE/.claude/settings.json"
+    assert_output '[]'
+}

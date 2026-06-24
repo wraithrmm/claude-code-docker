@@ -20,6 +20,9 @@ param(
     [switch]$NoDockerSock,
     [switch]$NoPull,
     [int]$OAuthPort = 3334,
+    [string]$Mcp = '',
+    [switch]$AllMcp,
+    [switch]$NoMcp,
     [switch]$DryRun,
     [switch]$Help,
     [Parameter(ValueFromRemainingArguments)]
@@ -35,6 +38,16 @@ if ($RemainingArgs) {
             '--host-network'  { $HostNetwork = $true }
             '--no-docker-sock'{ $NoDockerSock = $true }
             '--no-pull'       { $NoPull = $true }
+            '--all-mcp'       { $AllMcp = $true }
+            '--no-mcp'        { $NoMcp = $true }
+            '--mcp'           {
+                $i++
+                if ($i -ge $RemainingArgs.Count) {
+                    Write-Output "Error: --mcp requires a comma-separated list of server names (or 'all')."
+                    exit 1
+                }
+                $Mcp = $RemainingArgs[$i]
+            }
             '--dry-run'       { $DryRun = $true }
             '--oauth-port'    {
                 $i++
@@ -85,10 +98,21 @@ Options:
     (alias: --no-pull)
   -OAuthPort PORT      Host port for MCP OAuth callbacks (default: 3334)
     (alias: --oauth-port)
+  -Mcp LIST            Enable only these MCP servers (comma-separated names, or "all")
+    (alias: --mcp)
+  -AllMcp              Enable all configured MCP servers
+    (alias: --all-mcp)
+  -NoMcp               Enable no MCP servers (default behaviour)
+    (alias: --no-mcp)
   -DryRun              Print the docker command without executing
     (alias: --dry-run)
   -Help                Show this help message
     (alias: --help)
+
+MCP server selection:
+  By default no MCP servers are enabled, so none load (saving context) and none
+  can block startup with a trust prompt. Enable the ones you need with -Mcp, or
+  leave the flag off and pick from an interactive list shown at container start.
 
 Dependencies (auto-created if missing):
   %USERPROFILE%\.claude.json    Claude authentication/configuration
@@ -233,6 +257,16 @@ function Start-Container {
 
     $dockerArgs += '-e'
     $dockerArgs += 'RUN_AS_ROOT=true'
+
+    # MCP server selection (default: none enabled)
+    $mcpSelection = ''
+    if ($AllMcp)      { $mcpSelection = 'all' }
+    elseif ($NoMcp)   { $mcpSelection = 'none' }
+    elseif ($Mcp)     { $mcpSelection = $Mcp }
+    if ($mcpSelection) {
+        $dockerArgs += '-e'
+        $dockerArgs += "CLAUDE_MCP_SERVERS=$mcpSelection"
+    }
 
     # Image and entrypoint
     $dockerArgs += $Image

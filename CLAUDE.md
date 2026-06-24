@@ -31,6 +31,8 @@ See [bin/README.md](bin/README.md) for options (`--host-network`, `--dry-run`, e
 
 Note: The container includes pre-configured MCP servers (like Playwright) in `/workspace/.mcp.json`. If your project has a `.claude/.mcp.json` file, it will be automatically merged with the container's MCP configuration on startup, with project servers taking precedence.
 
+After merging, the entrypoint decides which of the merged servers Claude Code actually loads and auto-approves. By default **none** are enabled (so unused servers don't consume context and no unapproved project server can stall a spawned agent at the trust prompt). Choose servers with `run-claude-code --mcp <names>` / `--all-mcp`, or via the interactive tick-list shown at container start. The choice is written to `enabledMcpjsonServers` / `disabledMcpjsonServers` in the container's `/workspace/.claude/settings.json`; the host `~/.claude` is never touched. See `bin/README.md` for details.
+
 ## Security Scanning
 
 The repository includes `.trivyignore` to suppress base image security warnings (DS002) since the base image runs as root by design.

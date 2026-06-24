@@ -9,6 +9,9 @@
 #   --no-docker-sock     Don't mount Docker socket
 #   --no-pull            Skip pulling the latest image before running
 #   --oauth-port PORT    Host port for MCP OAuth callbacks (default: 3334)
+#   --mcp LIST           Enable only these MCP servers (comma-separated names, or "all")
+#   --all-mcp            Enable all configured MCP servers
+#   --no-mcp             Enable no MCP servers (default behaviour)
 #   --dry-run            Print the docker command without executing
 #   --help               Show this help message
 #
@@ -132,8 +135,16 @@ Options:
   --no-docker-sock     Don't mount the Docker socket into the container
   --no-pull            Skip pulling the latest image before running
   --oauth-port PORT    Host port for MCP OAuth callbacks (default: 3334)
+  --mcp LIST           Enable only these MCP servers (comma-separated names, or "all")
+  --all-mcp            Enable all configured MCP servers
+  --no-mcp             Enable no MCP servers (default behaviour)
   --dry-run            Print the docker command without executing
   --help               Show this help message
+
+MCP server selection:
+  By default no MCP servers are enabled, so none load (saving context) and none
+  can block startup with a trust prompt. Enable the ones you need with --mcp, or
+  leave the flag off and pick from an interactive list shown at container start.
 
 Dependencies (auto-created if missing):
   ~/.claude.json    Claude authentication/configuration
@@ -146,6 +157,8 @@ Examples:
   run-claude-code                        # Run with default settings (bridge network)
   run-claude-code --host-network         # Run with host networking
   run-claude-code --oauth-port 4444      # Use alternate port for MCP OAuth
+  run-claude-code --mcp playwright       # Enable only the playwright MCP server
+  run-claude-code --all-mcp              # Enable every configured MCP server
   run-claude-code --dry-run              # Show command without running
 
 EOF
@@ -158,11 +171,28 @@ parse_args() {
     SKIP_PULL=false
     DRY_RUN=false
     OAUTH_PORT=3334
+    MCP_SERVERS=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --host-network)
                 USE_HOST_NETWORK=true
+                shift
+                ;;
+            --mcp)
+                if [[ -z "$2" || "$2" == --* ]]; then
+                    echo "Error: --mcp requires a comma-separated list of server names (or 'all')."
+                    exit 1
+                fi
+                MCP_SERVERS="$2"
+                shift 2
+                ;;
+            --all-mcp)
+                MCP_SERVERS="all"
+                shift
+                ;;
+            --no-mcp)
+                MCP_SERVERS="none"
                 shift
                 ;;
             --no-docker-sock)
@@ -251,6 +281,10 @@ run_container() {
     cmd+=" -e HOST_PWD=\"$(pwd)\""
     cmd+=" -e HOST_USER=\"$(whoami)\""
     cmd+=" -e RUN_AS_ROOT=true"
+
+    if [[ -n "$MCP_SERVERS" ]]; then
+        cmd+=" -e CLAUDE_MCP_SERVERS=\"$MCP_SERVERS\""
+    fi
 
     # Image and entrypoint
     cmd+=" $IMAGE"

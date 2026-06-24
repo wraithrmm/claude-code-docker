@@ -22,8 +22,27 @@ That's it! The script will:
 | `--host-network` | Use host networking instead of bridge (default) |
 | `--no-docker-sock` | Don't mount Docker socket into container |
 | `--no-pull` | Skip pulling the latest image before running |
+| `--mcp LIST` | Enable only these MCP servers (comma-separated names, or `all`) |
+| `--all-mcp` | Enable all configured MCP servers |
+| `--no-mcp` | Enable no MCP servers (default) |
 | `--dry-run` | Print the docker command without executing |
 | `--help` | Show help message |
+
+### MCP server selection
+
+By default **no** MCP servers are enabled: none load (which saves context) and
+none can block startup with an approval prompt — important because an unapproved
+project MCP server would otherwise stall any agent the session spawns.
+
+Enable the servers you need in one of two ways:
+
+- Pass `--mcp <names>` (or `--all-mcp`) on the launcher, e.g. `--mcp playwright`.
+- Leave the flag off and pick from the interactive tick-list shown at container
+  start (only appears when attached to a terminal; non-interactive runs enable none).
+
+The selection is written into the container's `/workspace/.claude/settings.json`
+as `enabledMcpjsonServers` / `disabledMcpjsonServers`; your host `~/.claude` is
+never modified.
 
 ## Examples
 
@@ -36,6 +55,12 @@ That's it! The script will:
 
 # See what command would run without executing
 ./bin/run-claude-code --dry-run
+
+# Enable only the playwright MCP server
+./bin/run-claude-code --mcp playwright
+
+# Enable every configured MCP server
+./bin/run-claude-code --all-mcp
 
 # Skip image update check (use cached image)
 ./bin/run-claude-code --no-pull
@@ -74,6 +99,7 @@ The container receives these environment variables:
 | `HOST_PWD` | Current working directory on host |
 | `HOST_USER` | Username on host machine |
 | `RUN_AS_ROOT` | `true` |
+| `CLAUDE_MCP_SERVERS` | MCP servers to enable (only set when `--mcp`/`--all-mcp`/`--no-mcp` is passed) |
 
 ## Troubleshooting
 
@@ -134,6 +160,9 @@ The script supports both PowerShell-style (`-PascalCase`) and bash-style (`--keb
 | `-NoDockerSock` | `--no-docker-sock` | Don't mount Docker socket into container |
 | `-NoPull` | `--no-pull` | Skip pulling the latest image before running |
 | `-OAuthPort PORT` | `--oauth-port PORT` | Host port for MCP OAuth callbacks (default: 3334) |
+| `-Mcp LIST` | `--mcp LIST` | Enable only these MCP servers (comma-separated names, or `all`) |
+| `-AllMcp` | `--all-mcp` | Enable all configured MCP servers |
+| `-NoMcp` | `--no-mcp` | Enable no MCP servers (default) |
 | `-DryRun` | `--dry-run` | Print the docker command without executing |
 | `-Help` | `--help` | Show help message |
 
