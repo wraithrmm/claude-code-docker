@@ -152,6 +152,19 @@ RUN set -e && \
     node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
     node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)"
 
+# Configure git for shared Windows + Linux checkouts.
+# When the same working tree is used from a Windows host and this Linux container,
+# git would otherwise report every file as modified: Windows checks files out with
+# CRLF line endings and without the POSIX executable bit. Setting these system-wide
+# applies the policy to both root and the runtime user the entrypoint creates.
+#   core.autocrlf=input  - treat a CRLF working tree as equal to the LF index
+#                          (no spurious diff) and never write CRLF back on checkout.
+#   core.filemode=false  - ignore executable-bit differences between the platforms.
+RUN git config --system core.autocrlf input && \
+    git config --system core.filemode false && \
+    echo "git core.autocrlf=$(git config --system --get core.autocrlf)" && \
+    echo "git core.filemode=$(git config --system --get core.filemode)"
+
 # Create a workspace directory for Claude Code projects
 RUN mkdir -p /workspace
 RUN mkdir -p /workspace/project

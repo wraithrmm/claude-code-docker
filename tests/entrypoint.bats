@@ -1045,3 +1045,42 @@ load test_helper
     assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(git:read)'
     assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(rm:force)'
 }
+# Test 15: Git line-ending normalization for shared Windows/Linux checkouts
+
+@test "15.1: clears spurious CRLF-only changes without staging real edits" {
+    # Arrange a git repo mirroring the image's system git policy
+    git -C "$TEST_PROJECT" init -q
+    git -C "$TEST_PROJECT" config user.email test@example.com
+    git -C "$TEST_PROJECT" config user.name "Test"
+    git -C "$TEST_PROJECT" config core.autocrlf input
+    git -C "$TEST_PROJECT" config core.filemode false
+    printf 'a\nb\nc\n' > "$TEST_PROJECT/eol-only.txt"
+    printf 'x\ny\n' > "$TEST_PROJECT/real-edit.txt"
+    git -C "$TEST_PROJECT" add -A
+    git -C "$TEST_PROJECT" commit -qm init
+
+    # Windows-style CRLF rewrite (spurious) plus a genuine content edit
+    printf 'a\r\nb\r\nc\r\n' > "$TEST_PROJECT/eol-only.txt"
+    printf 'x\nyCHANGED\n' > "$TEST_PROJECT/real-edit.txt"
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Normalizing git line-endings"
+
+    # The CRLF-only file is no longer flagged; the real edit is left unstaged
+    run git -C "$TEST_PROJECT" status --porcelain
+    refute_output_contains "eol-only.txt"
+    assert_output_contains " M real-edit.txt"
+
+    # Nothing was staged by the normalization
+    run git -C "$TEST_PROJECT" diff --cached --name-only
+    assert_output ""
+}
+
+@test "15.2: no normalization attempted when project is not a git repo" {
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    refute_output_contains "Normalizing git line-endings"
+}

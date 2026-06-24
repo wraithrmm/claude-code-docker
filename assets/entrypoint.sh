@@ -228,9 +228,29 @@ export PATH="/workspace/project/.claude/bin:/workspace/.claude/bin:$PATH"
 # /workspace/project, so pin it there (overridable) to keep ai-playground under it.
 export PROJECT_ROOT="${PROJECT_ROOT:-/workspace/project}"
 
+# Clear spurious "modified" flags left over from sharing a checkout between a
+# Windows host and this Linux container. The system-wide git config baked into
+# the image (core.autocrlf=input, core.filemode=false) makes git ignore CRLF/LF
+# and executable-bit differences, but files already flagged in `git status` keep
+# showing until the index stat cache is refreshed. This refreshes only the files
+# git flags that have no real content change (pure line-ending noise); files with
+# genuine edits are left untouched and unstaged. Accepts an optional runner prefix
+# (e.g. "gosu user") so it can run as the user that owns the repo.
+normalize_project_eol() {
+    local git_cmd=("$@" git -C /workspace/project)
+    "${git_cmd[@]}" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+    echo "Normalizing git line-endings for shared Windows/Linux checkout..."
+    "${git_cmd[@]}" ls-files -m 2>/dev/null | while IFS= read -r changed_file; do
+        if "${git_cmd[@]}" diff --quiet -- "$changed_file" 2>/dev/null; then
+            "${git_cmd[@]}" add --renormalize -- "$changed_file" >/dev/null 2>&1 || true
+        fi
+    done
+}
+
 # Skip user switching in CI environments or if running as root
 if [[ "$CI" == "true" ]] || [[ "$RUN_AS_ROOT" == "true" ]] || [[ $PROJECT_UID -eq 0 ]]; then
     echo "Running as root..."
+    normalize_project_eol
     exec "$@"
 else
     USERNAME=${HOST_USER:-claude}
@@ -263,6 +283,10 @@ else
     chown -R "$PROJECT_UID:$PROJECT_GID" /workspace
     chown -R "$PROJECT_UID:$PROJECT_GID" /Users/claude-code
     chown -R "$PROJECT_UID:$PROJECT_GID" /opt/user-claude
+
+    # Run as the repo-owning user so git does not reject the repo as
+    # "dubious ownership" and so the index it rewrites stays user-owned.
+    normalize_project_eol gosu "$USERNAME"
 
     echo "Switching to user $USERNAME..."
     exec gosu "$USERNAME" "$@"
