@@ -1,7 +1,10 @@
 vulnerabilities:
-  # Go binary vulnerabilities - cannot be patched, need upstream fixes
-  # These are TEMPORARY suppressions until upstream projects release versions
-  # compiled with patched Go stdlib (requires Go 1.24.11+ or 1.25.5+)
+  # Go binary vulnerabilities - cannot be patched in place, need upstream rebuilds.
+  # These suppress HIGH/CRITICAL findings in compiled Go binaries we install from
+  # upstream (terraform, tflint, dockerd, docker-compose). They are TEMPORARY, held
+  # until upstream ships releases compiled with patched Go stdlib / modules.
+  # Tools install latest available; the affected-binary list reflects what is actually
+  # present in the image (terraform-docs and the standalone trivy binary were removed).
   #
   # terraform binary - HashiCorp go-getter arbitrary file read vulnerability
   - id: CVE-2025-8959
@@ -9,22 +12,10 @@ vulnerabilities:
   # terraform binary - database/sql Postgres race condition
   - id: CVE-2025-47907
     statement: Cannot patch compiled Go binary, using latest available version
-  # terraform-docs binary - crypto/x509 ExtKeyUsageAny policy validation issue
-  - id: CVE-2025-22874
-    statement: Cannot patch compiled Go binary, using latest available version
-  # Go stdlib HostnameError.Error() vulnerability - affects terraform, terraform-docs, tflint, trivy
+  # Go stdlib HostnameError.Error() vulnerability - affects terraform, tflint
   - id: CVE-2025-61729
     statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.5+
-  # Go stdlib archive/tar unbounded allocation - affects terraform-docs
-  - id: CVE-2025-58183
-    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.11+
-  # Go stdlib HTTP headers limit - affects terraform-docs
-  - id: CVE-2025-58186
-    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.11+
-  # Go stdlib name constraint checking - affects terraform-docs
-  - id: CVE-2025-58187
-    statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.11+
-  # sigstore timestamp-authority vulnerability - affects tflint, trivy
+  # sigstore timestamp-authority vulnerability - affects tflint
   - id: CVE-2025-66564
     statement: Cannot patch compiled Go binary, awaiting upstream release with fixed sigstore lib
 
@@ -51,7 +42,7 @@ vulnerabilities:
     statement: Global npm transitive dependency (brace-expansion@5.0.0), awaiting upstream package release with >=5.0.1
 
   # Go stdlib vulnerabilities - net/url and archive/zip
-  # Affects terraform-docs, tflint, trivy, docker-compose
+  # Affects tflint, docker-compose
   # Requires upstream releases compiled with Go 1.24.12+ or 1.25.6+
   - id: CVE-2025-61726
     statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.12+ or 1.25.6+
@@ -59,7 +50,7 @@ vulnerabilities:
     statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.12+ or 1.25.6+
 
   # Go stdlib crypto/tls vulnerabilities
-  # Affects docker, docker-proxy, dockerd, terraform, terraform-docs, tflint, docker-compose
+  # Affects dockerd, terraform, tflint, docker-compose
   # Requires upstream releases compiled with Go 1.24.13+ or 1.25.7+
   - id: CVE-2025-68121
     statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.24.13+ or 1.25.7+
@@ -72,49 +63,42 @@ vulnerabilities:
   - id: CVE-2026-24051
     statement: Cannot patch compiled Go binary, awaiting upstream release with go.opentelemetry.io/otel/sdk 1.40.0+
 
-  # Docker CLI plugins local privilege escalation - affects trivy binary
-  # Requires upstream trivy release compiled with docker/cli 29.2.0+
-  - id: CVE-2025-15558
-    statement: Cannot patch compiled Go binary, awaiting upstream release with docker/cli 29.2.0+
-
   # gRPC-Go authorization bypass via improper HTTP/2 path validation
-  # Affects dockerd, terraform, terraform-docs, tflint, trivy, docker-compose (compiled Go binaries)
+  # Affects dockerd, terraform, tflint, docker-compose (compiled Go binaries)
   # Low exploitability: these are CLI tools, not gRPC servers with path-based AuthZ deny rules
   # Requires upstream releases compiled with google.golang.org/grpc 1.79.3+
   - id: CVE-2026-33186
     statement: Cannot patch compiled Go binary. Low risk — affects gRPC server-side AuthZ, these tools use gRPC as clients. Awaiting upstream releases with grpc 1.79.3+
 
   # Go stdlib net/url incorrect parsing of IPv6 host literals
-  # Affects terraform-docs (Go 1.24.0), tflint (Go 1.25.5), trivy (Go 1.25.6) — compiled Go binaries
+  # Affects tflint — compiled Go binary
   # Docker Engine 29.3.1 and Terraform 1.14.8 already ship Go 1.25.8 (fixed)
-  # terraform-docs is semi-dormant (last release Dec 2025, Go 1.25 compat issue #870)
   - id: CVE-2026-25679
     statement: Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.8+ or 1.26.1+
 
   # Moby AuthZ plugin bypass when provided oversized request bodies
-  # Affects trivy, docker-compose (compiled Go binaries using docker/docker client library)
-  # Not exploitable: CVE targets dockerd server-side AuthZ plugin; these tools only use the client SDK
+  # Affects docker-compose (compiled Go binary using docker/docker client library)
+  # Not exploitable: CVE targets dockerd server-side AuthZ plugin; docker-compose only uses the client SDK
   # Docker Engine 29.3.1 includes the fix for dockerd itself
   - id: CVE-2026-34040
-    statement: Cannot patch compiled Go binary. Not exploitable — CVE affects dockerd AuthZ server, these tools use docker client SDK only. Awaiting upstream releases with docker 29.3.1+
+    statement: Cannot patch compiled Go binary. Not exploitable — CVE affects dockerd AuthZ server, docker-compose uses the docker client SDK only. Awaiting upstream release with docker 29.3.1+
 
   # BuildKit arbitrary file write and code execution via untrusted frontend
-  # Affects trivy (buildkit v0.26.2), docker-compose (buildkit v0.27.1) — compiled Go binaries
+  # Affects docker-compose (buildkit v0.27.1) — compiled Go binary
   # Docker Engine 29.3.1 ships buildkit v0.28.1 (fixed for actual build execution)
-  # trivy uses buildkit as a library for image analysis, not for running builds from untrusted Dockerfiles
   # docker-compose delegates builds to the engine's buildkit, so execution uses the patched engine version
   - id: CVE-2026-33747
-    statement: Cannot patch compiled Go binary. Low risk — trivy uses buildkit for analysis only, compose delegates to engine (patched). Awaiting upstream releases with buildkit 0.28.1+
+    statement: Cannot patch compiled Go binary. Low risk — docker-compose delegates builds to the engine (patched). Awaiting upstream release with buildkit 0.28.1+
 
   # BuildKit unauthorized file access via Git URL fragment subdir components
-  # Affects trivy (buildkit v0.26.2), docker-compose (buildkit v0.27.1) — compiled Go binaries
+  # Affects docker-compose (buildkit v0.27.1) — compiled Go binary
   # Same exploitability assessment as CVE-2026-33747 above
   - id: CVE-2026-33748
-    statement: Cannot patch compiled Go binary. Low risk — trivy uses buildkit for analysis only, compose delegates to engine (patched). Awaiting upstream releases with buildkit 0.28.1+
+    statement: Cannot patch compiled Go binary. Low risk — docker-compose delegates builds to the engine (patched). Awaiting upstream release with buildkit 0.28.1+
 
   # === Go 1.25.9/1.26.2 + 1.25.10/1.26.3 security releases (scanned 2026-05-27) ===
   # Go stdlib crypto/x509 + crypto/tls DoS set (April 2026, fixed Go 1.25.9 / 1.26.2)
-  # Affects terraform-docs, docker-compose (compiled Go binaries)
+  # Affects docker-compose (compiled Go binary)
   # Fixed versions verified via pkg.go.dev/vuln (GO-2026-4947 / 4946 / 4870)
   - id: CVE-2026-32280
     statement: Not exploitable - x509/TLS chain-building DoS only reachable when verifying attacker-supplied client cert chains; these tools act as TLS clients, not cert-verifying servers. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.9+ or 1.26.2+
@@ -124,7 +108,7 @@ vulnerabilities:
     statement: Low risk - TLS 1.3 KeyUpdate deadlock requires connecting to a malicious TLS endpoint and only hangs a single short-lived CLI connection. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.9+ or 1.26.2+
 
   # Go stdlib net / net/http / net/mail set (May 2026, fixed Go 1.25.10 / 1.26.3)
-  # Affects terraform-docs, trivy, docker-compose (compiled Go binaries)
+  # Affects docker-compose (compiled Go binary)
   # Fixed versions verified via pkg.go.dev/vuln (GO-2026-4981 / 4918 / 4986 / 4971 / 4977)
   - id: CVE-2026-33811
     statement: Low risk - cgo DNS resolver double-free requires a cgo build plus an explicit LookupCNAME, neither typical for these pure-Go CLI binaries. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
@@ -137,36 +121,16 @@ vulnerabilities:
   - id: CVE-2026-42499
     statement: Not exploitable - net/mail address parsing (consumePhrase) is not used by these tools. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
 
-  # go-git / go-billy vulnerabilities bundled in the trivy binary
-  # Only exercised during `trivy repo` git clone/checkout, not image/fs/SBOM scans
-  # Note: CVE-2026-44973 description and fixed version taken from the Trivy DB record
-  # (go-billy v5.8.0 -> 5.9.0, path traversal); NVD primary source not independently confirmed
-  - id: CVE-2026-44973
-    statement: Low risk - go-billy path traversal only exercised during trivy repo git clone/checkout and requires scanning a maliciously-crafted repo. Cannot patch compiled Go binary, awaiting upstream trivy release with go-billy 5.9.0+
-  - id: CVE-2026-45022
-    statement: Not exploitable - trivy scanning does not rely on go-git commit/tag signature verification; impact requires scanning an attacker-crafted repo and trusting go-git signature interpretation. Cannot patch compiled Go binary, awaiting upstream trivy release with go-git 5.19.0+
-
   # OpenTelemetry Go SDK kenv PATH hijacking bundled in docker-compose
   # Follow-up to CVE-2026-24051; vulnerable code path is BSD/Solaris-only
   - id: CVE-2026-39883
     statement: Not exploitable - vulnerable kenv code path is BSD/Solaris-only (host_id_bsd.go build tag) and not compiled on our Linux image; also requires local attacker PATH control. Cannot patch compiled Go binary, awaiting upstream release with go.opentelemetry.io/otel/sdk 1.43.0+
 
-  # === Surfaced by rebuild on 2026-05-27 (newer binaries + newer Trivy DB) ===
-  # Go stdlib html/template XSS + httputil.ReverseProxy smuggling (fixed Go 1.25.10 / 1.26.3)
-  # Affects terraform-docs, trivy (compiled Go binaries)
-  # Verified via pkg.go.dev/vuln (GO-2026-4982 / 4980) + golang-announce Go 1.25.10/1.26.3 release
-  - id: CVE-2026-39823
-    statement: Not exploitable - html/template meta-tag escaper-bypass XSS; these CLI tools do not render html/template output to a browser. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
-  - id: CVE-2026-39825
-    statement: Not exploitable - httputil.ReverseProxy query-parameter smuggling; these tools do not run an HTTP ReverseProxy server. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
-  - id: CVE-2026-39826
-    statement: Not exploitable - html/template script-tag escaper-bypass XSS; these CLI tools do not render html/template output to a browser. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.10+ or 1.26.3+
-
   # containerd runAsNonRoot evasion via CRI-plugin user-ID type confusion
-  # Affects dockerd, trivy, docker-compose (compiled Go binaries)
+  # Affects dockerd, docker-compose (compiled Go binaries)
   # Fixed containerd 2.2.4 / 2.0.9 / 2.3.1 (1.7.32 for the v1 module)
   - id: CVE-2026-46680
-    statement: Low risk - affected code is containerd's CRI-plugin runAsNonRoot enforcement, a Kubernetes/kubelet runtime concern; trivy and docker-compose embed containerd only as a library (image pull/extract, API orchestration) and never run the CRI user-ID path, and dockerd here is a single-tenant developer Docker-in-Docker engine, not a CRI node. Cannot patch compiled Go binary, awaiting upstream rebuilds with containerd 2.2.4+ (1.7.32+ for the v1 module)
+    statement: Low risk - affected code is containerd's CRI-plugin runAsNonRoot enforcement, a Kubernetes/kubelet runtime concern; docker-compose embeds containerd only as a library (API orchestration) and never runs the CRI user-ID path, and dockerd here is a single-tenant developer Docker-in-Docker engine, not a CRI node. Cannot patch compiled Go binary, awaiting upstream rebuilds with containerd 2.2.4+ (1.7.32+ for the v1 module)
 
   # Docker Engine daemon vulnerabilities matched against the docker/docker module in docker-compose
   # Vulnerable code is server-side in github.com/docker/docker/daemon (runs in dockerd); docker-compose
@@ -177,6 +141,28 @@ vulnerabilities:
     statement: Not exploitable from this binary - RCE lives in the Docker Engine daemon (github.com/docker/docker/daemon) handling PUT /containers/archive; docker-compose links docker/docker only as a client SDK and does not run the daemon path. Fixed engine-side in Docker Engine 29.5.1+; no fix for the legacy module path. Patch the host engine separately.
   - id: CVE-2026-42306
     statement: Not exploitable from this binary - TOCTOU bind-mount redirection lives in the Docker Engine daemon (github.com/docker/docker/daemon) docker cp path; docker-compose links docker/docker only as a client SDK and does not run the daemon path. Fixed engine-side in Docker Engine 29.5.1+; no fix for the legacy module path. Patch the host engine separately.
+
+  # === Surfaced by rebuild on 2026-06-24 (newer binaries + newer Trivy DB) ===
+  # Go stdlib quadratic-DoS set (June 2026, fixed Go 1.25.11 / 1.26.4)
+  # Affects terraform (Go 1.25.10), tflint (Go 1.26.3) — compiled Go binaries
+  # Fixed versions verified via pkg.go.dev/vuln (GO-2026-5037 / 5038) + Go 1.25.11/1.26.4 release
+  - id: CVE-2026-27145
+    statement: Not exploitable - crypto/x509 VerifyHostname quadratic DoS only amplified when verifying an attacker-supplied cert carrying a very large DNS SAN list; these tools make outbound TLS only to trusted endpoints (registries, module sources) with small SANs and never verify adversarial certs. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.11+ or 1.26.4+
+  - id: CVE-2026-42504
+    statement: Not exploitable - mime WordDecoder.DecodeHeader quadratic DoS requires decoding attacker-controlled MIME/RFC2047 headers; terraform and tflint never parse email or MIME-encoded-word headers. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.11+ or 1.26.4+
+
+  # containerd v2 CRI-plugin vulnerability set (June 2026, fixed containerd 2.2.5 / 2.3.2; also 2.1.9)
+  # Affects dockerd (containerd/v2 v2.2.4) — compiled Go binary
+  # All three are CRI-plugin (Kubernetes runtime) issues requiring pod-creation rights + a malicious
+  # image/checkpoint; verified via containerd GitHub Security Advisories (GHSA-xhf5-7wjv-pqxp /
+  # rgh6-rfwx-v388 / 33vj-92qq-66hc). dockerd here is a single-tenant developer Docker-in-Docker
+  # engine with no CRI server, so the CRI-plugin paths are not reachable.
+  - id: CVE-2026-53488
+    statement: Not exploitable - containerd CRI-plugin image-LABEL-to-host command execution requires a running CRI server plus a host plugin consuming CRI labels; the dev DinD dockerd runs no CRI server. Cannot patch compiled Go binary, awaiting upstream rebuild with containerd 2.2.5+ / 2.3.2+
+  - id: CVE-2026-53489
+    statement: Not exploitable - containerd CRI-plugin checkpoint container.log symlink arbitrary file read requires CRI checkpoint/restore plus kubectl logs; not reachable from a dev DinD dockerd with no CRI server. Cannot patch compiled Go binary, awaiting upstream rebuild with containerd 2.2.5+ / 2.3.2+
+  - id: CVE-2026-53492
+    statement: Not exploitable - containerd CRI-plugin CDI annotation smuggling requires CRI + CDI enabled + checkpoint/restore on a multi-tenant node; none of these conditions exist for a dev DinD dockerd. Cannot patch compiled Go binary, awaiting upstream rebuild with containerd 2.2.5+ / 2.3.2+
 
 misconfigurations:
   # DL3002/DS-0002: Last USER should not be root
