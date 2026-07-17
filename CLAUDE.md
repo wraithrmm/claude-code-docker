@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains a Docker prototype for integrating Claude Code into a development environment. The project creates a containerized environment that combines a PHP/Apache base image with Claude Code installation with the objective of allowing developers to run Claude Code in a Docker container so that they can run multiple instances locally, at once, on any mapped codebase.
+This repository contains a Docker prototype for integrating Claude Code into a development environment. The project creates a containerized environment that combines a slim Node.js LTS base image with Claude Code installation with the objective of allowing developers to run Claude Code in a Docker container so that they can run multiple instances locally, at once, on any mapped codebase.
 
 ## Architecture
 
-- **Base Image**: Uses a custom PHP/Apache base image
-- **Runtime Environment**: Node.js LTS installed alongside PHP/Apache for Claude Code functionality
+- **Base Image**: Uses a slim Node.js LTS (Debian bookworm) base image
+- **Runtime Environment**: Node.js LTS provided by the base image for Claude Code functionality
 - **Working Directory**: `/workspace` is the designated directory for Claude Code projects within the container
 - **Service Identity**: Tagged as `claudecode` service
 
@@ -37,9 +37,9 @@ The repository includes `.trivyignore` to suppress base image security warnings 
 
 ## Development Notes
 
-- The container inherits the entrypoint from the base PHP/Apache image
+- The container defines its own entrypoint (`/entrypoint.sh`)
 - Claude Code is installed globally and available system-wide
-- The `/workspace` directory is owned by `www-data:www-data` for proper permissions
+- The `/workspace` directory ownership is set to the runtime user by the entrypoint at startup
 - Node.js and npm versions are verified during build to ensure proper installation
 
 ## Testing

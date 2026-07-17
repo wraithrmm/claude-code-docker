@@ -181,3 +181,30 @@ Install Docker Desktop from https://www.docker.com/products/docker-desktop
 
 #### Workspace directory permissions
 Creating `C:\Users\claude-code\` may require administrator privileges. Run PowerShell as Administrator if the script reports a permission error, or create the directory manually.
+
+#### Scripts fail with `bad interpreter` or `\r` errors (CRLF line endings)
+Git on Windows checks files out with CRLF line endings by default (`core.autocrlf=true`). A shell script saved with CRLF has a shebang of `#!/bin/bash\r`, so the Linux container looks for the interpreter `/bin/bash\r`, fails, and bash trips over the trailing `\r` on every line. Helper scripts such as `run-linters` and `run-tests` then break.
+
+This container already mitigates it automatically: on startup the entrypoint runs `normalize_executable_eol`, which rewrites CRLF→LF in the scripts it executes (files under `.claude/bin` and any git-tracked file beginning with a `#!` shebang). Because the image sets `core.autocrlf=input`, that rewrite produces no `git status` noise. No action is needed for the scripts to run.
+
+To fix it at the source so a Windows editor cannot re-introduce CRLF, commit a `.gitattributes` to the **target** repository:
+
+```gitattributes
+* text=auto eol=lf
+*.sh   text eol=lf
+*.bash text eol=lf
+.claude/bin/* text eol=lf
+bin/*  text eol=lf
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+```
+
+For files already checked out with CRLF, re-apply the new policy once on the **host** (Git ≥ 2.16):
+
+```bash
+git add --renormalize .
+git commit -m "Normalize line endings to LF"
+```

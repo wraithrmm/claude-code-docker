@@ -1045,3 +1045,125 @@ load test_helper
     assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(git:read)'
     assert_file_contains "$TEST_WORKSPACE/.claude/settings.local.json" 'Bash(rm:force)'
 }
+# Test 15: Git line-ending normalization for shared Windows/Linux checkouts
+
+@test "15.1: clears spurious CRLF-only changes without staging real edits" {
+    # Arrange a git repo mirroring the image's system git policy
+    git -C "$TEST_PROJECT" init -q
+    git -C "$TEST_PROJECT" config user.email test@example.com
+    git -C "$TEST_PROJECT" config user.name "Test"
+    git -C "$TEST_PROJECT" config core.autocrlf input
+    git -C "$TEST_PROJECT" config core.filemode false
+    printf 'a\nb\nc\n' > "$TEST_PROJECT/eol-only.txt"
+    printf 'x\ny\n' > "$TEST_PROJECT/real-edit.txt"
+    git -C "$TEST_PROJECT" add -A
+    git -C "$TEST_PROJECT" commit -qm init
+
+    # Windows-style CRLF rewrite (spurious) plus a genuine content edit
+    printf 'a\r\nb\r\nc\r\n' > "$TEST_PROJECT/eol-only.txt"
+    printf 'x\nyCHANGED\n' > "$TEST_PROJECT/real-edit.txt"
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Normalizing git line-endings"
+
+    # The CRLF-only file is no longer flagged; the real edit is left unstaged
+    run git -C "$TEST_PROJECT" status --porcelain
+    refute_output_contains "eol-only.txt"
+    assert_output_contains " M real-edit.txt"
+
+    # Nothing was staged by the normalization
+    run git -C "$TEST_PROJECT" diff --cached --name-only
+    assert_output ""
+}
+
+@test "15.2: no normalization attempted when project is not a git repo" {
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    refute_output_contains "Normalizing git line-endings"
+}
+
+@test "15.3: strips CRLF from a helper script in .claude/bin and leaves git clean" {
+    git -C "$TEST_PROJECT" init -q
+    git -C "$TEST_PROJECT" config user.email test@example.com
+    git -C "$TEST_PROJECT" config user.name "Test"
+    git -C "$TEST_PROJECT" config core.autocrlf input
+    git -C "$TEST_PROJECT" config core.filemode false
+    mkdir -p "$TEST_PROJECT/.claude/bin"
+    printf '#!/bin/bash\necho hi\n' > "$TEST_PROJECT/.claude/bin/run-foo"
+    chmod +x "$TEST_PROJECT/.claude/bin/run-foo"
+    git -C "$TEST_PROJECT" add -A
+    git -C "$TEST_PROJECT" commit -qm init
+
+    # Windows-style CRLF rewrite of the committed helper
+    printf '#!/bin/bash\r\necho hi\r\n' > "$TEST_PROJECT/.claude/bin/run-foo"
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    # Carriage returns are gone and the script is executable
+    run bash -c "grep -q \$'\r' '$TEST_PROJECT/.claude/bin/run-foo'"
+    assert_failure
+    assert_file_executable "$TEST_PROJECT/.claude/bin/run-foo"
+
+    # The line-ending rewrite leaves nothing flagged or staged
+    run git -C "$TEST_PROJECT" status --porcelain
+    refute_output_contains "run-foo"
+    run git -C "$TEST_PROJECT" diff --cached --name-only
+    assert_output ""
+}
+
+@test "15.4: strips CRLF from a tracked shebang script anywhere in the project" {
+    git -C "$TEST_PROJECT" init -q
+    git -C "$TEST_PROJECT" config user.email test@example.com
+    git -C "$TEST_PROJECT" config user.name "Test"
+    git -C "$TEST_PROJECT" config core.autocrlf input
+    git -C "$TEST_PROJECT" config core.filemode false
+    mkdir -p "$TEST_PROJECT/scripts"
+    printf '#!/bin/bash\necho build\n' > "$TEST_PROJECT/scripts/build.sh"
+    git -C "$TEST_PROJECT" add -A
+    git -C "$TEST_PROJECT" commit -qm init
+
+    printf '#!/bin/bash\r\necho build\r\n' > "$TEST_PROJECT/scripts/build.sh"
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    run bash -c "grep -q \$'\r' '$TEST_PROJECT/scripts/build.sh'"
+    assert_failure
+}
+
+@test "15.5: leaves a tracked non-shebang CRLF file untouched" {
+    git -C "$TEST_PROJECT" init -q
+    git -C "$TEST_PROJECT" config user.email test@example.com
+    git -C "$TEST_PROJECT" config user.name "Test"
+    git -C "$TEST_PROJECT" config core.autocrlf input
+    git -C "$TEST_PROJECT" config core.filemode false
+    printf 'col1,col2\n1,2\n' > "$TEST_PROJECT/data.csv"
+    git -C "$TEST_PROJECT" add -A
+    git -C "$TEST_PROJECT" commit -qm init
+
+    printf 'col1,col2\r\n1,2\r\n' > "$TEST_PROJECT/data.csv"
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    # No shebang, so the executable normalizer must not rewrite it
+    run bash -c "grep -q \$'\r' '$TEST_PROJECT/data.csv'"
+    assert_success
+}
+
+@test "15.6: strips CRLF from bin helpers even when project is not a git repo" {
+    mkdir -p "$TEST_PROJECT/.claude/bin"
+    printf '#!/bin/bash\r\necho hi\r\n' > "$TEST_PROJECT/.claude/bin/run-foo"
+    chmod +x "$TEST_PROJECT/.claude/bin/run-foo"
+
+    run_entrypoint_with_env CI=true HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    refute_output_contains "Normalizing git line-endings"
+    run bash -c "grep -q \$'\r' '$TEST_PROJECT/.claude/bin/run-foo'"
+    assert_failure
+}

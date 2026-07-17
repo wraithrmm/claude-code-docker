@@ -6,7 +6,7 @@ This project allows the use of Claude Code on your repositories for AI-assisted 
 >
 > Please ensure you are farmiliar with your AI Governance Policy before using this tooling.
 
-A containerized environment that integrates [Claude Code](https://claude.ai/code) with a PHP/Apache infrastructure, enabling developers to run multiple Claude Code instances locally on any mapped codebase.
+A containerized environment that integrates [Claude Code](https://claude.ai/code) into a lightweight Node.js base image, enabling developers to run multiple Claude Code instances locally on any mapped codebase.
 
 Before working with or on this, ensure you understand the appropriate AI usage guidelines for your organization.
 
@@ -32,12 +32,11 @@ Before working with or on this, ensure you understand the appropriate AI usage g
 
 ## Overview
 
-This Docker image combines a custom PHP/Apache base image with Claude Code, providing a seamless development environment for AI-assisted coding. The container includes:
+This Docker image combines a slim Node.js LTS base image with Claude Code, providing a seamless development environment for AI-assisted coding. The container includes:
 
-- PHP 8.3 with Apache web server
 - Node.js LTS for Claude Code runtime
 - Claude Code CLI installed globally with auto-update capability
-- Docker CE (version 24+) and docker-compose for running containers and tests
+- Docker CLI and Compose plugin (using the host's Docker daemon) for running containers and tests
 - Playwright with TypeScript support for browser automation testing
 - Workspace directory at `/workspace` for project files
 - Automatic user detection and permission management

@@ -1,7 +1,7 @@
-ARG PHP_VERSION=8.3
-ARG OS_RELEASE=-bookworm
-# Base image - replace with your PHP/Apache base image
-FROM php:${PHP_VERSION}-apache${OS_RELEASE}
+# Base image - slim Node LTS on Debian bookworm. Node and npm are preinstalled, so no
+# separate NodeSource install is needed, and the PHP/Apache stack is dropped entirely
+# (apache was never run - the entrypoint execs Claude Code).
+FROM node:lts-bookworm-slim
 
 ARG TAGGED_VERSION
 ARG CACHE_BUST
@@ -51,15 +51,15 @@ RUN apt-get update && \
     rm -rf /tmp/* && \
     rm -rf /var/tmp/*
 
-# Install Docker CE (version 24+) and docker-compose to allow claude to run Unit Tests
+# Install the Docker CLI and Compose plugin so claude can run unit tests via Docker.
+# Only the client is installed: the container talks to the host's Docker daemon through
+# the mounted socket, so the in-container engine (docker-ce) and containerd are not used.
 # Add Docker's official GPG key and repository
 RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
     && apt-get update \
     && apt-get install --no-install-recommends -y \
-    docker-ce \
     docker-ce-cli \
-    containerd.io \
     docker-compose-plugin  && \
     apt-get clean && \
     apt-get autoclean && \
@@ -73,6 +73,10 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
 
 # Install Node.js (required for Claude Code)
 # Using NodeSource repository for latest LTS
+# Security: remove corepack after install. corepack vendors undici inside corepack.cjs
+# (CVE-2026-12151, WebSocket DoS) and is the sole carrier of that finding. It only
+# provides yarn/pnpm shims, which this npm-only image never uses; npm itself is a
+# separate global module and is unaffected.
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install --no-install-recommends -y \
     nodejs && \
@@ -84,7 +88,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     rm -rf /tmp/* && \
     rm -rf /var/tmp/* && \
     node --version && \
-    npm --version
+    npm --version && \
+    { npm uninstall -g corepack || true; } && \
+    rm -rf "$(npm root -g)/corepack" && \
+    rm -f /usr/bin/corepack /usr/local/bin/corepack && \
+    ! command -v corepack
 
 # Install Terraform and dependencies
 # Detect architecture for binary downloads (amd64 or arm64)
@@ -138,19 +146,24 @@ RUN npm install -g \
 # CVE-2026-33671: picomatch <4.0.4 (ReDoS via crafted extglob patterns)
 #   picomatch affected locations: npm/tinyglobby/picomatch, markdownlint-cli/tinyglobby/picomatch
 #   No upstream fix yet: npm <=11.12.1 and markdownlint-cli 0.48.0 both bundle picomatch 4.0.3
+# CVE-2026-12151: undici <6.27.0 (DoS via unbounded WebSocket memory growth)
+#   npm bundles undici transitively via node-gyp ("undici": "^6.25.0"); 6.27.0 is the
+#   fixed release on the 6.x line and stays within node-gyp's ^6 constraint.
 RUN set -e && \
-    NPM_NM=/usr/lib/node_modules/npm/node_modules && \
+    NPM_NM="$(npm root -g)/npm/node_modules" && \
     mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
     npm init -y --silent && \
-    npm install minimatch@10.2.3 tar@7.5.11 picomatch@4.0.4 --install-strategy=nested --silent && \
-    rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" && \
+    npm install minimatch@10.2.3 tar@7.5.11 picomatch@4.0.4 undici@6.27.0 --install-strategy=nested --silent && \
+    rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" "$NPM_NM/undici" && \
     cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
     cp -r node_modules/tar "$NPM_NM/tar" && \
+    cp -r node_modules/undici "$NPM_NM/undici" && \
     find /usr/lib/node_modules -name picomatch -type d \
       -exec sh -c 'v=$(node -p "require(\"$1/package.json\").version"); [ "$v" = "4.0.3" ] && rm -rf "$1" && cp -r node_modules/picomatch "$1" && echo "Patched $1: $v -> 4.0.4"' _ {} \; && \
     rm -rf /tmp/npm-patches && \
     node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
-    node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)"
+    node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)" && \
+    node -e "console.log('undici: ' + require('$NPM_NM/undici/package.json').version)"
 
 # Create a workspace directory for Claude Code projects
 RUN mkdir -p /workspace
@@ -194,10 +207,8 @@ COPY assets/playwright/example.spec.ts /workspace/playwright-templates/example.s
 COPY assets/playwright/playwright.config.ts /workspace/playwright-templates/playwright.config.ts
 COPY assets/playwright/package.json /workspace/playwright-templates/package.json
 
-# Set appropriate permissions
-RUN chown -R www-data:www-data /workspace
-
-# Create Claude config directory
+# Create Claude config directory. Ownership of /workspace is set at startup by the
+# entrypoint (chown to the runtime user), so no build-time chown layer is needed here.
 RUN mkdir -p /root/.claude
 
 # Copy LICENSE file for license compliance

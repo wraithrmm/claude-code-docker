@@ -35,8 +35,6 @@ This document covers development and contribution to the Docker image itself. Fo
 
    Optional build arguments:
 
-   - `PHP_VERSION`: Specify PHP version (default: 8.3)
-   - `OS_RELEASE`: Specify OS release (default: -bookworm)
    - `TAGGED_VERSION`: Version tag for the image
    - `CACHE_BUST`: Force rebuild without cache
 
