@@ -231,12 +231,15 @@ COPY assets/mcp.json /workspace/.mcp.json
 # Copy .claude dir to root to share common commands across all Claude Code instances
 COPY assets/.claude /workspace/.claude
 
-# Install claude-workflow plugin from GitHub
-# Provides workflow commands (/hello, /create-project, /list-tasks, etc.) and scripts
-RUN git clone --depth 1 https://github.com/wraithrmm/claude-workflow.git /opt/claude-workflow && \
-    cp /opt/claude-workflow/scripts/* /workspace/.claude/bin/ && \
-    cp -r /opt/claude-workflow/skills/* /workspace/.claude/skills/ && \
-    chmod +x /workspace/.claude/bin/*
+# Bake a backup copy of the Claude Code plugin marketplace (workflow skills and
+# agents, branch beacon). The entrypoint replaces it with the latest commit at
+# every container start and falls back to this copy when the fetch fails.
+ARG CLAUDE_PLUGINS_REPO=https://github.com/wraithrmm/claude-workflow.git
+ARG CLAUDE_PLUGINS_REF=main
+COPY assets/install-claude-plugins.sh /usr/local/bin/install-claude-plugins
+RUN chmod +x /usr/local/bin/install-claude-plugins && \
+    CLAUDE_PLUGINS_REPO="$CLAUDE_PLUGINS_REPO" CLAUDE_PLUGINS_REF="$CLAUDE_PLUGINS_REF" install-claude-plugins --bake > /dev/null && \
+    chmod -R a+rX /opt/claude-plugins
 
 # Copy entrypoint script
 COPY assets/entrypoint.sh /entrypoint.sh

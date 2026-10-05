@@ -221,12 +221,26 @@ fi
 # Add project bin scripts to PATH for convenient access
 export PATH="/workspace/project/.claude/bin:/workspace/.claude/bin:$PATH"
 
-# Pin the workflow project root to the mounted codebase. The claude-workflow scripts
+# Pin the workflow project root to the mounted codebase. The workflow plugin scripts
 # default PROJECT_ROOT to "git rev-parse --show-toplevel || pwd", which resolves to
 # /workspace when invoked from the container's default working directory, placing
 # ai-playground at /workspace/ai-playground. The codebase is always mounted at
 # /workspace/project, so pin it there (overridable) to keep ai-playground under it.
 export PROJECT_ROOT="${PROJECT_ROOT:-/workspace/project}"
+
+# Claude runs from /workspace while the repo is mounted at /workspace/project, so
+# point the branch-beacon plugin at the repo rather than the session's folder.
+export BRANCH_BEACON_REPO="${BRANCH_BEACON_REPO:-/workspace/project}"
+
+# Load the latest Claude Code plugins (workflow skills and agents, branch beacon)
+# at every start, so consumers get plugin updates without rebuilding the image.
+# The script keeps the copy baked into the image when the fetch fails.
+if command -v install-claude-plugins > /dev/null 2>&1; then
+    plugin_dirs="$(install-claude-plugins)"
+    if [[ -n "$plugin_dirs" ]]; then
+        export CLAUDE_CODE_PLUGIN_DIRS="${CLAUDE_CODE_PLUGIN_DIRS:+$CLAUDE_CODE_PLUGIN_DIRS:}$plugin_dirs"
+    fi
+fi
 
 # Clear spurious "modified" flags left over from sharing a checkout between a
 # Windows host and this Linux container. The system-wide git config baked into

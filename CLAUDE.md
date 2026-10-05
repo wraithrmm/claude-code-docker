@@ -12,6 +12,7 @@ This repository contains a Docker prototype for integrating Claude Code into a d
 - **Runtime Environment**: Node.js LTS installed alongside PHP/Apache for Claude Code functionality
 - **Working Directory**: `/workspace` is the designated directory for Claude Code projects within the container
 - **Service Identity**: Tagged as `claudecode` service
+- **Workflow Plugins**: Workflow skills, scripts and agents are not baked into `assets/.claude`; they are loaded at runtime from the `wraithrmm/claude-workflow` plugin marketplace (see [Plugins](#plugins))
 
 ## Docker Commands
 
@@ -20,6 +21,8 @@ Build the Docker image:
 ```bash
 docker build -f Dockerfile -t claude-code-docker:local . --build-arg TAGGED_VERSION=local
 ```
+
+The build bakes a backup copy of the plugins from `CLAUDE_PLUGINS_REPO`/`CLAUDE_PLUGINS_REF` (build args, default `wraithrmm/claude-workflow` `main`) and fails if that ref has no `plugins/*/.claude-plugin/plugin.json`.
 
 Run the container using the launcher script:
 
@@ -106,6 +109,19 @@ These same tools run automatically in the CircleCI pipeline:
 4. If Dockerfile was changed, run the security scan: `./.claude/bin/run-security-scan`
 5. Address any issues found before committing
 
+## Plugins
+
+The workflow skills (`/hello`, `/create-project`, ...), their helper scripts and the `workflow:lint-runner`, `workflow:unit-test-runner` and `workflow:playwright-visual-tester` agents come from the `workflow` plugin, and the branch chip above the prompt (`/toggle-branch-beacon`) from the `branch-beacon` plugin. Both live in the `wraithrmm` marketplace at [wraithrmm/claude-workflow](https://github.com/wraithrmm/claude-workflow) (`plugins/<name>/`). **Changes to workflow skills, agents or scripts go in that repository, not here.**
+
+How the container loads them (`assets/install-claude-plugins.sh`, called from the Dockerfile and `assets/entrypoint.sh`):
+
+- **Build**: a backup copy of the marketplace repository is baked into `/opt/claude-plugins/current`.
+- **Start**: the entrypoint fetches the latest commit (20s timeout) and swaps it in, keeping the backup if the fetch fails or the fetched copy has no `plugins/*/.claude-plugin/plugin.json`. Every plugin under `plugins/` is added to `CLAUDE_CODE_PLUGIN_DIRS`.
+- **Overrides**: `CLAUDE_PLUGINS_REPO` (default `https://github.com/wraithrmm/claude-workflow.git`), `CLAUDE_PLUGINS_REF` (default `main`), `CLAUDE_PLUGINS_FETCH_TIMEOUT` (default `20`), `CLAUDE_PLUGINS_FETCH=0` to skip the fetch and use the backup.
+- **Branch Beacon**: the entrypoint sets `BRANCH_BEACON_REPO=/workspace/project` (overridable), because Claude runs from `/workspace` while the repo is mounted one level down.
+
+Consumers therefore get plugin updates on the next container start without an image rebuild. Inside the container the workflow scripts are at `/opt/claude-plugins/current/plugins/workflow/scripts/`, not `/workspace/.claude/bin/`. Plugin agents are only reachable with the `workflow:` prefix; plugin skills keep their bare names unless a local skill of the same name exists.
+
 ## Important Note About CLAUDE.md Files
 
 This repository contains two CLAUDE.md files with different purposes:
@@ -140,7 +156,7 @@ The container includes pre-configured Claude Code hooks that enforce determinist
 The Stop hook runs when Claude finishes responding and:
 
 1. **Checks for code changes**: Looks for Edit, Write, or MultiEdit tool usage in the session
-2. **Checks for testing**: Looks for lint-runner or unit-test-runner sub-agent invocations
+2. **Checks for testing**: Looks for `workflow:lint-runner` or `workflow:unit-test-runner` sub-agent invocations
 3. **Reminds if needed**: If code was changed but testing wasn't run, reminds Claude to use the sub-agents
 4. **Prevents loops**: If already reminded once (stop_hook_active=true), allows stopping
 

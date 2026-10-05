@@ -7,9 +7,13 @@ export TEST_PROJECT="/tmp/test-project-$$"
 export TEST_CLAUDE_CODE="/tmp/test-claude-code-$$"
 export ORIGINAL_ENTRYPOINT="$BATS_TEST_DIRNAME/../assets/entrypoint.sh"
 
+# Never fetch plugins from the network while testing the entrypoint
+export CLAUDE_PLUGINS_FETCH=0
+export CLAUDE_PLUGINS_DIR="/tmp/test-claude-plugins-$$/current"
+
 # Load additional helper modules if they exist
-if [[ -f "$BATS_TEST_DIRNAME/test_helper_ai_playground.bash" ]]; then
-    source "$BATS_TEST_DIRNAME/test_helper_ai_playground.bash"
+if [[ -f "$BATS_TEST_DIRNAME/test_helper_bin.bash" ]]; then
+    source "$BATS_TEST_DIRNAME/test_helper_bin.bash"
 fi
 
 if [[ -f "$BATS_TEST_DIRNAME/test_helper_json.bash" ]]; then
