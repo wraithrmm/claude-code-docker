@@ -9,7 +9,8 @@ This guide covers how to customize Claude Code behavior for your specific codeba
 - [Custom Agents](#custom-agents)
 - [Project settings.json](#project-settingsjson)
 - [MCP Server Configuration](#mcp-server-configuration)
-- [PRP Templates](#prp-templates)
+- [Custom Skills](#custom-skills)
+- [Workflow Plugins](#workflow-plugins)
 
 ---
 
@@ -118,18 +119,24 @@ your-project/
 
 ### Built-in Commands Reference
 
-The container includes these commands by default:
+Most built-in commands are skills from the `workflow` plugin (see [Workflow Plugins](#workflow-plugins)). Each is invoked by its bare name unless your project defines a skill with the same name; then use `/workflow:<name>`.
 
 | Command | Description |
 |---------|-------------|
 | `/hello` | Initialize workspace and verify environment |
-| `/test-and-fix` | Run tests and iteratively fix failures |
-| `/create-project` | Create a new project plan structure |
+| `/init-playground` | Set up the ai-playground and show its status |
+| `/create-project <name>` | Create a new project plan structure |
 | `/continue-project <name>` | Resume work on an existing project |
 | `/list-projects` | Show all projects in ai-playground |
 | `/create-task <name>` | Create a new task for tracking |
 | `/list-tasks` | Show all tasks grouped by status |
 | `/move-task <name> <status>` | Move task to different status |
+| `/create-project-task <project> <task>` | Create a task within a project |
+| `/list-project-tasks <project>` | List a project's tasks by status |
+| `/move-project-task <project> <task> <status>` | Move a project task to a different status |
+| `/add-acceptance-criteria <feature> <use-case>` | Add acceptance criteria to a feature, implement and test |
+| `/toggle-branch-beacon` | Hide or show the branch chip (`branch-beacon` plugin) |
+| `/test-and-fix` | Run tests and iteratively fix failures (baked into the image) |
 
 ---
 
@@ -180,13 +187,13 @@ Provide findings in severity-ordered list with specific file/line references.
 
 ### Built-in Agents
 
-The container includes:
+The `workflow` plugin provides these agents. Plugin agents are only reachable with the plugin prefix, for example `Task(subagent_type="workflow:lint-runner", ...)`:
 
 | Agent | Purpose |
 |-------|---------|
-| `playwright-visual-tester` | Visual verification, screenshots, UI testing |
-| `lint-runner` | Code quality checks and linting |
-| `unit-test-runner` | Running and analyzing test results |
+| `workflow:playwright-visual-tester` | Visual verification, screenshots, UI testing |
+| `workflow:lint-runner` | Code quality checks and linting |
+| `workflow:unit-test-runner` | Running and analyzing test results |
 
 ### Example: Database Migration Agent
 
@@ -386,91 +393,70 @@ your-project/
 
 ---
 
-## PRP Templates
+## Custom Skills
 
-PRP (Project Requirement Plan) Templates provide reusable patterns for common development tasks.
+Skills are reusable instructions Claude loads when a task matches their description. They replace the PRP templates used by earlier versions of this container: put reusable implementation patterns (required information, workflow steps, file map, acceptance criteria) in a skill.
 
 ### Location
 
 ```
 your-project/
 └── .claude/
-    └── prp-templates/
-        └── your-template.md
+    └── skills/
+        └── api-endpoint/
+            └── SKILL.md
 ```
 
-### Template Structure
+### File Format
 
 ```markdown
-# PRP Template: [Template Name]
+---
+name: api-endpoint
+description: Create a new REST API endpoint with validation and tests. Use when adding or changing an API route.
+---
 
-## Purpose
-Brief description of what this template is for.
-
-## Required Information
-Information Claude must gather before proceeding:
-- [ ] Required field 1
-- [ ] Required field 2
-
-## Workflow Steps
-1. Step one
-2. Step two
-3. Step three
-
-## File Map
-### New Files
-- `path/to/file.ext` - Purpose
-
-### Modified Files
-- `path/to/existing.ext` - Changes
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-```
-
-### Example: API Endpoint Template
-
-```markdown
-# PRP Template: REST API Endpoint
-
-## Purpose
-Guide for creating new REST API endpoints with proper structure and testing.
+# REST API Endpoint
 
 ## Required Information
-- [ ] Endpoint path (e.g., /api/users)
-- [ ] HTTP method (GET, POST, PUT, DELETE)
-- [ ] Request/response schema
-- [ ] Authentication requirements
+- Endpoint path, HTTP method, request/response schema, authentication requirements
 
 ## Workflow Steps
 1. Create route handler in `src/routes/`
 2. Add input validation schema
-3. Implement business logic
-4. Add error handling
-5. Write unit tests
-6. Update API documentation
-
-## File Map
-### New Files
-- `src/routes/{name}.ts` - Route handler
-- `src/validators/{name}.ts` - Validation schema
-- `tests/routes/{name}.test.ts` - Unit tests
-
-### Modified Files
-- `src/routes/index.ts` - Register new route
+3. Implement business logic and error handling
+4. Write unit tests
+5. Update API documentation
 
 ## Acceptance Criteria
 - [ ] Route responds with correct status codes
 - [ ] Input validation rejects invalid data
-- [ ] Authentication enforced if required
-- [ ] Unit tests pass with >80% coverage
-- [ ] API documentation updated
+- [ ] Unit tests pass
 ```
 
-### Using Templates
+A project skill with the same name as a `workflow` plugin skill takes the bare name; the plugin's version stays reachable as `/workflow:<name>`.
 
-Reference templates when creating tasks or projects. Claude will follow the template's workflow and ensure all acceptance criteria are met.
+---
+
+## Workflow Plugins
+
+The project and task workflow commands, their helper scripts and the built-in agents come from two Claude Code plugins in the `wraithrmm` marketplace, hosted at [wraithrmm/claude-workflow](https://github.com/wraithrmm/claude-workflow):
+
+- **`workflow`**: PRP project and task workflow skills, helper scripts, the `workflow:*` agents and the `workflow-guide` skill with the full process and file formats.
+- **`branch-beacon`**: shows the checked-out git branch and repo name as a coloured chip above the prompt. `/toggle-branch-beacon` hides or shows it.
+
+The container fetches the latest version of the plugins on every start (falling back to a copy baked into the image), so updates arrive on the next container start. See the [README](../README.md#workflow-plugins) for the environment variables that control this.
+
+The workflow scripts are no longer in `/workspace/.claude/bin/`; inside the container they live at `/opt/claude-plugins/current/plugins/workflow/scripts/` and are run through their skills.
+
+### Without Docker
+
+```bash
+claude plugin marketplace add wraithrmm/claude-workflow
+claude plugin install workflow@wraithrmm
+claude plugin install branch-beacon@wraithrmm
+```
+
+Do not also install them into a host `~/.claude` that you mount into the container; they may load twice.
 
 ---
 
@@ -490,6 +476,7 @@ your-project/
     │       └── lint-all.md      # /myproject/lint-all command
     ├── agents/
     │   └── security-reviewer.md # Security review agent
-    └── prp-templates/
-        └── api-endpoint.md      # API endpoint template
+    └── skills/
+        └── api-endpoint/
+            └── SKILL.md         # API endpoint skill
 ```

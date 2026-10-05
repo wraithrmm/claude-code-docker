@@ -164,6 +164,56 @@ vulnerabilities:
   - id: CVE-2026-53492
     statement: Not exploitable - containerd CRI-plugin CDI annotation smuggling requires CRI + CDI enabled + checkpoint/restore on a multi-tenant node; none of these conditions exist for a dev DinD dockerd. Cannot patch compiled Go binary, awaiting upstream rebuild with containerd 2.2.5+ / 2.3.2+
 
+  # === Surfaced on 2026-10-05 (newer tflint binary + newer Trivy DB) ===
+  # tflint (compiled Go binary) - Go modules and stdlib CVEs that need an upstream
+  # rebuild of tflint with patched dependencies / Go toolchain. tflint runs locally
+  # against the user's own Terraform, makes outbound TLS only to trusted plugin
+  # registries, and never serves gRPC or parses adversarial network input here.
+  # golang.org/x/crypto/ssh source-address auth bypass - tflint does not run an SSH server
+  - id: CVE-2026-56854
+    statement: Not exploitable - golang.org/x/crypto/ssh source-address auth bypass needs tflint to act as an SSH server enforcing source-address restrictions; it never does. Cannot patch compiled Go binary, awaiting upstream release with golang.org/x/crypto 0.55.0+
+  # golang.org/x/mod GOSUMDB / transparency-log verification bypass - supply-chain path not exercised at lint runtime
+  - id: CVE-2026-56864
+    statement: Not exploitable - golang.org/x/mod/sumdb integrity bypass affects module download verification, not the tflint lint runtime. Cannot patch compiled Go binary, awaiting upstream release with golang.org/x/mod 0.40.0+
+  - id: CVE-2026-56865
+    statement: Not exploitable - golang.org/x/mod/sumdb/tlog transparency-log verification bypass affects module download verification, not the tflint lint runtime. Cannot patch compiled Go binary, awaiting upstream release with golang.org/x/mod 0.40.0+
+  # google.golang.org/grpc DoS / xDS RBAC issues - tflint runs no gRPC server
+  - id: CVE-2026-84304
+    statement: Not exploitable - gRPC-Go server-side vulnerability; tflint links grpc only as a plugin client and runs no gRPC server. Cannot patch compiled Go binary, awaiting upstream release with google.golang.org/grpc 1.83.1+
+  - id: CVE-2026-84445
+    statement: Not exploitable - gRPC-Go DoS via malformed RPC requires an exposed gRPC server; tflint runs none. Cannot patch compiled Go binary, awaiting upstream release with google.golang.org/grpc 1.83.2+
+  - id: GHSA-hrxh-6v49-42gf
+    statement: Not exploitable - gRPC-Go xDS RBAC / HTTP2 issue requires an xDS-configured gRPC server; tflint runs none. Cannot patch compiled Go binary, awaiting upstream release with google.golang.org/grpc 1.82.1+
+  # Go stdlib DoS / parsing set (Oct 2026, fixed Go 1.25.13 / 1.26.6) - tflint parses only local trusted config
+  - id: CVE-2026-33818
+    statement: Not exploitable - encoding/asn1 recursion DoS requires decoding attacker-supplied ASN.1; tflint parses only local Terraform/HCL. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+  - id: CVE-2026-39821
+    statement: Not exploitable - golang.org/x/net/idna Punycode privilege-escalation requires processing adversarial hostnames; tflint makes outbound TLS only to trusted plugin registries. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+  - id: CVE-2026-39822
+    statement: Not exploitable - os.Root symlink traversal requires untrusted archive extraction; not a path tflint runs. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.12+ or 1.26.5+
+  - id: CVE-2026-46600
+    statement: Not exploitable - golang.org/x/net/dns/dnsmessage DoS requires parsing adversarial DNS records; tflint does not parse raw DNS. Cannot patch compiled Go binary, awaiting upstream release with Go 1.26.6+
+  - id: CVE-2026-56853
+    statement: Not exploitable - net/http unencrypted-HTTP/2 DoS requires serving an h2c endpoint; tflint runs no HTTP server. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+  - id: CVE-2026-56858
+    statement: Not exploitable - html/template XSS requires rendering HTML templates to a browser; tflint emits only CLI diagnostics. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+  - id: CVE-2026-56859
+    statement: Not exploitable - encoding/xml recursion DoS requires decoding adversarial XML; tflint parses only local Terraform/HCL. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+  - id: CVE-2026-56860
+    statement: Not exploitable - net/url quadratic DoS requires parsing attacker-controlled URLs at scale; tflint handles only its own trusted plugin/source URLs. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+  - id: CVE-2026-56862
+    statement: Not exploitable - crypto/tls KeyUpdate DoS requires an exposed TLS server; tflint runs none. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+
+  # http-cache-semantics <=4.2.0 cross-user cached-response disclosure via max-stale (npm bundled copy)
+  # Disputed advisory with NO official fixed version (first_patched_version: null); the maintainer
+  # disputes it (2026-10-04) and 4.3.0 does not change the affected max-stale code, so an upgrade does
+  # not clear the scanner. This is npm's own bundled copy (npm/node_modules/http-cache-semantics), used
+  # only by npm's registry client to cache npm-registry responses in a single-developer container:
+  # there is no shared multi-user HTTP cache and no Set-Cookie session traffic, so the cross-user
+  # disclosure is not reachable. Revisit if an official fixed version is published.
+  - id: CVE-2026-93748
+    statement: Not exploitable - npm's bundled http-cache-semantics caches only npm-registry responses for a single local developer; no shared multi-user cache or session cookies. Disputed advisory with no official fixed version (4.3.0 does not patch the max-stale path).
+
 misconfigurations:
   # DL3002/DS-0002: Last USER should not be root
   # This base image runs as root by design for Docker-in-Docker and package management

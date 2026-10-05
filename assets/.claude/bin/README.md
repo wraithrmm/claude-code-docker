@@ -1,22 +1,17 @@
 # AI Helper Scripts
 
-## Project Management
-- `init-playground` - Initialize AI playground and show status
-- `list-projects` - Show all projects and their status  
-- `continue-project <project>` - Resume work on a project
-- `create-project <name>` - Create a new project PRP structure
-- `verify-project <project>` - Check project structure
-- `count-projects` - Count active projects
-- `create-project-task <project> <task>` - Create a task within a specific project
-- `list-project-tasks <project>` - List all tasks within a specific project
-- `move-project-task <project> <task> <status>` - Move task between statuses within a project
+This directory (`/workspace/.claude/bin/` in the container) is for helper scripts you want available in every session. The image ships only this README here.
 
-## Task Management
-- `create-task <name>` - Create a new task in planning status
-- `list-tasks` - Show all tasks grouped by status
-- `move-task <name> <status>` - Move task between workflow states
+## Workflow Scripts Have Moved
 
-## Utilities
-- `git-diff.sh <file>` - Review uncommitted changes for a specific file
+The project and task management scripts (`init-playground`, `create-project`, `create-task`, `list-tasks`, `move-task` and the rest) are no longer here. They are part of the `workflow` Claude Code plugin from the `wraithrmm/claude-workflow` repository and live inside the container at:
 
-Use these scripts to manage projects, tasks, and track changes.
+```text
+/opt/claude-plugins/current/plugins/workflow/scripts/
+```
+
+Run them through their skills (`/init-playground`, `/create-project`, `/create-task`, ...) rather than calling the scripts directly. Skills reference them as `${CLAUDE_PLUGIN_ROOT}/scripts/<name>`.
+
+## Project Scripts
+
+Projects can still provide their own helper scripts in `/workspace/project/.claude/bin/`. Document them in the project's `CLAUDE.md` so Claude knows to prefer them.

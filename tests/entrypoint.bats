@@ -1084,3 +1084,37 @@ load test_helper
     assert_success
     refute_output_contains "Normalizing git line-endings"
 }
+
+# Plugin loading
+
+@test "16.1: points branch-beacon at the mounted project by default" {
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser printenv BRANCH_BEACON_REPO
+
+    assert_success
+    assert_output_contains "$TEST_PROJECT"
+}
+
+@test "16.2: keeps a BRANCH_BEACON_REPO the user set" {
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser BRANCH_BEACON_REPO=/somewhere/else printenv BRANCH_BEACON_REPO
+
+    assert_success
+    assert_output_contains "/somewhere/else"
+}
+
+@test "16.3: loads the plugin dirs the installer prints" {
+    mkdir -p "$TEST_CLAUDE_CODE/stub-bin"
+    printf '#!/bin/bash\necho /opt/claude-plugins/current/plugins/workflow\n' > "$TEST_CLAUDE_CODE/stub-bin/install-claude-plugins"
+    chmod +x "$TEST_CLAUDE_CODE/stub-bin/install-claude-plugins"
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser PATH="$TEST_CLAUDE_CODE/stub-bin:$PATH" CLAUDE_CODE_PLUGIN_DIRS=/mine printenv CLAUDE_CODE_PLUGIN_DIRS
+
+    assert_success
+    assert_output_contains "/mine:/opt/claude-plugins/current/plugins/workflow"
+}
+
+@test "16.4: starts without plugins when the installer is not present" {
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser PATH="/usr/bin:/bin" bash -c 'echo "dirs=[${CLAUDE_CODE_PLUGIN_DIRS:-}]"'
+
+    assert_success
+    assert_output_contains "dirs=[]"
+}

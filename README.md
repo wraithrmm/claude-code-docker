@@ -23,6 +23,7 @@ Before working with or on this, ensure you understand the appropriate AI usage g
   - [Git Configuration](#optional-git-configuration-for-commits)
 - [File Permissions and User Management](#file-permissions-and-user-management)
 - [Running Multiple Instances](#running-multiple-instances)
+- [Workflow Plugins](#workflow-plugins)
 - [Customizing Claude Code Behavior](#customizing-claude-code-behavior)
 - [Playwright Integration](#playwright-integration)
 - [Best Practices](#best-practices)
@@ -40,6 +41,7 @@ This Docker image combines a custom PHP/Apache base image with Claude Code, prov
 - Docker CE (version 24+) and docker-compose for running containers and tests
 - Playwright with TypeScript support for browser automation testing
 - Workspace directory at `/workspace` for project files
+- The `workflow` and `branch-beacon` Claude Code plugins, refreshed from GitHub on every container start (see [Workflow Plugins](#workflow-plugins))
 - Automatic user detection and permission management
 - Secure user switching with gosu for proper file ownership
 
@@ -206,6 +208,8 @@ claude-unsafe --dangerously-skip-permissions -p "refactor all tests to use vites
 - `-e HOST_PWD=$(pwd)`: Allows docker mount the CWD from within the container for things like Unit Test execution
 - `-e HOST_USER=$(whoami)`: Provides the host user identity to the container for proper ownership and permissions
 - `-e RUN_AS_ROOT=true`: Optional - Forces container to run as root instead of creating a matching user
+- `-e CLAUDE_PLUGINS_REPO=...`, `-e CLAUDE_PLUGINS_REF=...`, `-e CLAUDE_PLUGINS_FETCH_TIMEOUT=...`, `-e CLAUDE_PLUGINS_FETCH=0`: Optional - Control where the workflow plugins are fetched from at startup (see [Workflow Plugins](#workflow-plugins))
+- `-e BRANCH_BEACON_REPO=...`: Optional - The repo the branch chip reads (default `/workspace/project`)
 
 ### Optional: Git Configuration for Commits
 
@@ -278,6 +282,48 @@ run-claude-code
 
 Each instance runs independently with its own workspace mounted.
 
+## Workflow Plugins
+
+The project and task workflow (`/hello`, `/create-project`, `/create-task`, `/continue-project`, ...), its helper scripts and the `workflow:lint-runner`, `workflow:unit-test-runner` and `workflow:playwright-visual-tester` agents come from Claude Code plugins in the `wraithrmm` marketplace, hosted at [wraithrmm/claude-workflow](https://github.com/wraithrmm/claude-workflow):
+
+| Plugin | Provides |
+| --- | --- |
+| `workflow` | PRP project and task workflow skills, helper scripts, the lint, unit-test and Playwright agents, and the `workflow-guide` skill with the full process |
+| `branch-beacon` | Shows the checked-out git branch and repo name as a coloured chip above the prompt; `/toggle-branch-beacon` hides or shows it |
+
+### How the Container Loads Them
+
+- The image bakes a backup copy of the marketplace repository at `/opt/claude-plugins/current` at build time.
+- On every container start the entrypoint fetches the latest commit of the repository (20 second timeout) and swaps it in. If the fetch fails, or the fetched copy has no `plugins/*/.claude-plugin/plugin.json`, the backup is kept.
+- Every plugin found under `plugins/` is loaded through `CLAUDE_CODE_PLUGIN_DIRS`.
+
+So you get plugin updates on the next container start, without rebuilding or pulling a new image.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CLAUDE_PLUGINS_REPO` | `https://github.com/wraithrmm/claude-workflow.git` | Repository to fetch the plugins from |
+| `CLAUDE_PLUGINS_REF` | `main` | Branch or tag to fetch |
+| `CLAUDE_PLUGINS_FETCH_TIMEOUT` | `20` | Seconds to wait for the fetch |
+| `CLAUDE_PLUGINS_FETCH` | `1` | Set to `0` to skip the fetch and use the backup baked into the image |
+
+`run-claude-code` does not forward these variables; to set them, use `run-claude-code --dry-run` to print the `docker run` command and add `-e NAME=value` to it.
+
+### Skill and Agent Names
+
+Skills keep their bare names (`/create-project`, `/hello`, ...) unless your project defines a local skill with the same name; then the plugin's version is reachable as `/workflow:<name>`. Agents are only reachable with the prefix, for example `workflow:lint-runner`.
+
+### Using the Plugins Without Docker
+
+Outside the container you can install the same plugins into Claude Code directly:
+
+```bash
+claude plugin marketplace add wraithrmm/claude-workflow
+claude plugin install workflow@wraithrmm
+claude plugin install branch-beacon@wraithrmm
+```
+
+Do not also install them into a host `~/.claude` that you mount into the container: the container already loads them, so they may load twice.
+
 ## Customizing Claude Code Behavior
 
 Claude Code can be customized for your specific projects. All customizations go in your project's `.claude/` directory.
@@ -318,6 +364,10 @@ your-project/.claude/agents/security-reviewer.md
 ```
 
 Agents use YAML frontmatter to define their behavior and are automatically invoked when their description matches the task.
+
+### Custom Skills
+
+Create skills in `.claude/skills/<name>/SKILL.md`. Skills replace the old PRP templates: put reusable implementation patterns for your project in a skill. A project skill with the same name as a `workflow` plugin skill takes the bare name; the plugin's version stays reachable as `/workflow:<name>`.
 
 ### Project settings.json
 

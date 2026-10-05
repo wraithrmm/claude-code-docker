@@ -180,7 +180,7 @@ mcp__playwright__browser_take_screenshot("element.png", false, "element_ref")
 
 **MANDATORY**: Always use the Playwright Visual Tester Agent unless instructed to do otherwise by the user.
 
-The `playwright-visual-tester` agent is available for streamlined visual testing that reduces context pollution in conversations.
+The `workflow:playwright-visual-tester` agent (from the `workflow` plugin) is available for streamlined visual testing that reduces context pollution in conversations.
 
 ### Use the Sub-agent When:
 - Performing routine visual verification after changes
@@ -203,7 +203,7 @@ Instead of multiple MCP commands cluttering the conversation:
 ❌ mcp__playwright__browser_take_screenshot("result.png")
 
 Use the agent for a clean result:
-✅ Task(subagent_type="playwright-visual-tester", 
+✅ Task(subagent_type="workflow:playwright-visual-tester", 
      prompt="Navigate to https://localhost/ and capture screenshot as homepage.png")
 ```
 

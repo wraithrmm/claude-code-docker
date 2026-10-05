@@ -136,24 +136,32 @@ RUN npm install -g \
 # CVE-2026-33671: picomatch <4.0.4 (ReDoS via crafted extglob patterns)
 #   picomatch affected locations: npm/tinyglobby/picomatch, markdownlint-cli/tinyglobby/picomatch
 #   No upstream fix yet: npm <=11.12.1 and markdownlint-cli 0.48.0 both bundle picomatch 4.0.3
-# CVE-2026-12151: undici <6.27.0 (DoS via unbounded WebSocket memory growth)
-#   npm bundles undici transitively via node-gyp ("undici": "^6.25.0"); 6.27.0 is the
+# CVE-2026-19534: undici <6.28.1 (DoS via unrequested WebSocket subprotocol)
+#   npm bundles undici transitively via node-gyp ("undici": "^6.25.0"); 6.28.1 is the
 #   fixed release on the 6.x line and stays within node-gyp's ^6 constraint.
+# CVE-2026-59873, CVE-2026-59874, CVE-2026-73566: tar <7.5.21 (DoS via crafted archives)
+# CVE-2026-102276, CVE-2026-102278, CVE-2026-14257, CVE-2026-69152: brace-expansion <5.0.12 (DoS)
+# CVE-2026-69192: ip-address <10.3.1 (SSRF via inconsistent IP address parsing)
 RUN set -e && \
     NPM_NM=/usr/lib/node_modules/npm/node_modules && \
     mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
     npm init -y --silent && \
-    npm install minimatch@10.2.3 tar@7.5.11 picomatch@4.0.4 undici@6.27.0 --install-strategy=nested --silent && \
-    rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" "$NPM_NM/undici" && \
+    npm install minimatch@10.2.3 tar@7.5.21 picomatch@4.0.4 undici@6.28.1 brace-expansion@5.0.12 ip-address@10.3.1 --install-strategy=nested --silent && \
+    rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" "$NPM_NM/undici" "$NPM_NM/brace-expansion" "$NPM_NM/ip-address" && \
     cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
     cp -r node_modules/tar "$NPM_NM/tar" && \
     cp -r node_modules/undici "$NPM_NM/undici" && \
+    cp -r node_modules/brace-expansion "$NPM_NM/brace-expansion" && \
+    cp -r node_modules/ip-address "$NPM_NM/ip-address" && \
     find /usr/lib/node_modules -name picomatch -type d \
       -exec sh -c 'v=$(node -p "require(\"$1/package.json\").version"); [ "$v" = "4.0.3" ] && rm -rf "$1" && cp -r node_modules/picomatch "$1" && echo "Patched $1: $v -> 4.0.4"' _ {} \; && \
-    rm -rf /tmp/npm-patches && \
+    cd / && rm -rf /tmp/npm-patches && \
+    npm --version && \
     node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
     node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)" && \
-    node -e "console.log('undici: ' + require('$NPM_NM/undici/package.json').version)"
+    node -e "console.log('undici: ' + require('$NPM_NM/undici/package.json').version)" && \
+    node -e "console.log('brace-expansion: ' + require('$NPM_NM/brace-expansion/package.json').version)" && \
+    node -e "console.log('ip-address: ' + require('$NPM_NM/ip-address/package.json').version)"
 
 # Configure git for shared Windows + Linux checkouts.
 # When the same working tree is used from a Windows host and this Linux container,
@@ -178,7 +186,7 @@ WORKDIR /workspace
 # CVE-2026-26996, CVE-2026-27903, CVE-2026-27904: minimatch <10.2.3 (ReDoS)
 # CVE-2026-26960, GHSA-qffp-2rhf-9h96: tar <7.5.10 (Hardlink path traversal)
 # CVE-2026-31802: tar <7.5.11 (Drive-relative symlink traversal)
-RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.1","minimatch":">=10.2.3","tar":">=7.5.11"}}' > /workspace/package.json
+RUN echo '{"private":true,"overrides":{"@isaacs/brace-expansion":">=5.0.12","brace-expansion":">=5.0.12","minimatch":">=10.2.3","tar":">=7.5.21"}}' > /workspace/package.json
 
 # Shared, world-readable browser cache so the gosu runtime user (and all users)
 # share one copy. Inherited at runtime via the image ENV; gosu preserves it.
@@ -186,7 +194,10 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Install Playwright with TypeScript support
 # This replicates your TypeScript choice and browser installation choice
-RUN npm install @playwright/test typescript @types/node
+# Pin TypeScript to the stable 5.x JS compiler. typescript@7 is the native Go
+# preview (tsgo): it drags in @typescript/typescript-linux-* binaries whose Go
+# stdlib carries HIGH CVEs we cannot patch. 5.x matches assets/playwright/package.json.
+RUN npm install @playwright/test typescript@^5 @types/node
 
 # Install the Chromium browser into the shared path and make it readable/traversable
 # for non-root users (go+rX = read + dir-traverse, no write).
@@ -231,12 +242,15 @@ COPY assets/mcp.json /workspace/.mcp.json
 # Copy .claude dir to root to share common commands across all Claude Code instances
 COPY assets/.claude /workspace/.claude
 
-# Install claude-workflow plugin from GitHub
-# Provides workflow commands (/hello, /create-project, /list-tasks, etc.) and scripts
-RUN git clone --depth 1 https://github.com/wraithrmm/claude-workflow.git /opt/claude-workflow && \
-    cp /opt/claude-workflow/scripts/* /workspace/.claude/bin/ && \
-    cp -r /opt/claude-workflow/skills/* /workspace/.claude/skills/ && \
-    chmod +x /workspace/.claude/bin/*
+# Bake a backup copy of the Claude Code plugin marketplace (workflow skills and
+# agents, branch beacon). The entrypoint replaces it with the latest commit at
+# every container start and falls back to this copy when the fetch fails.
+ARG CLAUDE_PLUGINS_REPO=https://github.com/wraithrmm/claude-workflow.git
+ARG CLAUDE_PLUGINS_REF=main
+COPY assets/install-claude-plugins.sh /usr/local/bin/install-claude-plugins
+RUN chmod +x /usr/local/bin/install-claude-plugins && \
+    CLAUDE_PLUGINS_REPO="$CLAUDE_PLUGINS_REPO" CLAUDE_PLUGINS_REF="$CLAUDE_PLUGINS_REF" install-claude-plugins --bake > /dev/null && \
+    chmod -R a+rX /opt/claude-plugins
 
 # Copy entrypoint script
 COPY assets/entrypoint.sh /entrypoint.sh
