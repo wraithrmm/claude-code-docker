@@ -256,9 +256,17 @@ your-project/
 | Pattern | Description |
 |---------|-------------|
 | `Read(path-glob)` | Allow/deny reading files |
-| `Write(path-glob)` | Allow/deny writing files |
-| `Edit(path-glob)` | Allow/deny editing files |
+| `Edit(path-glob)` | Allow/deny editing and writing files (Claude Code never consults `Write(...)` or `MultiEdit(...)` path rules) |
 | `Bash(command:args)` | Allow/deny specific bash commands |
+
+### How the Container Applies It
+
+Claude Code reads only `enabledPlugins` and `extraKnownMarketplaces` from the settings of a directory added with `--add-dir`, so at container start the entrypoint merges your `permissions.allow`, `ask` and `deny` rules into the container's `/workspace/.claude/settings.json`:
+
+- `Read`/`Edit` path rules are re-anchored to `/workspace/project` with the same matching depth, because the session runs from `/workspace` (`Edit(/src/**)` becomes `Edit(//workspace/project/src/**)`, `Read(.env)` becomes `Read(//workspace/project/**/.env)`).
+- `!` negation rules are dropped: they cannot carve out anchored rules, so dropping them only widens a deny.
+- `env`, `hooks` and other keys are **not** merged. Project hooks would see `$CLAUDE_PROJECT_DIR=/workspace`, not your project.
+- Changes to `settings.json` apply at the next container start.
 
 ### Path Glob Patterns
 

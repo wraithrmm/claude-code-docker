@@ -330,6 +330,21 @@ Claude Code can be customized for your specific projects. All customizations go 
 
 For full documentation with examples, see [docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md).
 
+### How the Container Loads Your `.claude/`
+
+Claude Code starts in `/workspace`, one level above your mounted project, and discovers project agents, skills, commands and rules only from its working directory and the directories above it. The image therefore installs a `claude` wrapper (`/usr/local/bin/claude`) that adds `--add-dir=/workspace/project` to every session, and sets `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`:
+
+| Project file | How it loads | Edits made while the container runs |
+|---|---|---|
+| `CLAUDE.md`, `.claude/rules/*.md`, `CLAUDE.local.md` | `--add-dir` with the env var | Next session |
+| `.claude/agents/`, `.claude/commands/` | `--add-dir` | Next session |
+| `.claude/skills/` | `--add-dir` | Live |
+| `.claude/settings.json` permission rules | Merged into `/workspace/.claude/settings.json` by the entrypoint | Next container start |
+| `.claude/settings.local.json` | Copied to `/workspace/.claude/` if absent | Next container start |
+| `.claude/.mcp.json` | Merged into `/workspace/.mcp.json` | Next container start |
+
+The wrapper leaves subcommands (`claude update`, `claude mcp ...`) and sessions started inside `/workspace/project` untouched. Calling `/usr/bin/claude` directly bypasses it.
+
 ### Project CLAUDE.md
 
 Add a `CLAUDE.md` file to your project root with project-specific instructions, e.g:

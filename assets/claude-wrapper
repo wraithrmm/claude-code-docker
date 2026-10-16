@@ -1,0 +1,50 @@
+#!/bin/bash
+# SPDX-License-Identifier: PolyForm-Shield-1.0.0
+# Copyright (c) 2025-present Richard Mann
+# Licensed under the PolyForm Shield License 1.0.0
+# https://polyformproject.org/licenses/shield/1.0.0/
+
+# Installed as /usr/local/bin/claude, ahead of the npm-installed /usr/bin/claude
+# on PATH, so `claude update` (which rewrites only the npm symlink) keeps it.
+#
+# Sessions start in /workspace while the codebase is mounted at
+# /workspace/project. Claude Code discovers project agents, skills and commands
+# only from the working directory and its parents, so the mount's .claude/ is
+# never seen. Adding the mount with --add-dir loads them, and with
+# CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 (set in the image) also its
+# CLAUDE.md and .claude/rules/.
+#
+# The flag is passed as --add-dir=<dir>: --add-dir takes a variadic value, so
+# the space-separated form would swallow a following prompt argument.
+
+CLAUDE_BIN="${CLAUDE_REAL_BIN:-/usr/bin/claude}"
+PROJECT_DIR="${CLAUDE_PROJECT_MOUNT:-/workspace/project}"
+
+SUBCOMMANDS=" agents attach auth auto-mode doctor gateway import install logs mcp plugin plugins purge respawn rm setup-token stop kill ultrareview update upgrade "
+
+should_add_project_dir() {
+    [[ -d "$PROJECT_DIR" ]] || return 1
+
+    case "$PWD/" in
+        "$PROJECT_DIR"/*) return 1 ;;
+    esac
+
+    if [[ -n "${1:-}" && "$1" != -* && "$SUBCOMMANDS" == *" $1 "* ]]; then
+        return 1
+    fi
+
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            "$PROJECT_DIR" | "$PROJECT_DIR/" | "--add-dir=$PROJECT_DIR" | "--add-dir=$PROJECT_DIR/") return 1 ;;
+        esac
+    done
+
+    return 0
+}
+
+if should_add_project_dir "$@"; then
+    exec "$CLAUDE_BIN" "--add-dir=$PROJECT_DIR" "$@"
+fi
+
+exec "$CLAUDE_BIN" "$@"

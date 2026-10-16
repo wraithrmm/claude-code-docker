@@ -94,27 +94,79 @@ PROJECT_GID=$(stat -c %g /workspace/project)
 # Continue with normal initialization
 echo "Initializing Claude Code container..."
 
-# Check if project has custom commands
-if [[ -d "/workspace/project/.claude/commands" ]]; then
-    echo "Found project-specific commands in /workspace/project/.claude/commands/"
+# The project's agents, skills, commands, CLAUDE.md and rules are not copied: the
+# claude wrapper (/usr/local/bin/claude) adds /workspace/project with --add-dir,
+# which loads them in place, so edits made while the container runs stay live.
+#
+# Permission rules are the exception. Claude Code reads only enabledPlugins and
+# extraKnownMarketplaces from an --add-dir directory's settings, so the project's
+# allow/ask/deny rules are merged into the container settings here. Once merged,
+# Read/Edit path rules would resolve against /workspace instead of the project,
+# so they are re-anchored to the mount, keeping their matching depth:
+#   "/p"                     -> "//<project>/p"
+#   bare "name" / "*.ext"    -> "//<project>/**/name"   (gitignore: any depth)
+#   "dir/**" in ask/deny     -> "//<project>/**/dir/**" (any depth for these kinds)
+#   other relative "p"       -> "//<project>/p"
+# "//" and "~/" rules are already absolute and kept as they are. "!" negations
+# cannot carve out anchored rules, so they are dropped, which only widens a deny.
+merge_project_permissions() {
+    local project_settings="/workspace/project/.claude/settings.json"
+    local container_settings="/workspace/.claude/settings.json"
+    local merged_settings="/tmp/merged.settings.json"
 
-    # Copy all files and directories from project commands to container commands
-    # Using cp -r to preserve directory structure and -n to not overwrite existing files
-    cp -rn /workspace/project/.claude/commands/* /workspace/.claude/commands/ 2>/dev/null || true
+    [[ -f "$project_settings" ]] || return 0
+    echo "Found project-specific settings in $project_settings"
 
-    echo "Project commands copied to container"
-fi
+    if [[ "$(jq type "$project_settings" 2>/dev/null)" != "\"object\"" ]]; then
+        echo "Warning: Project settings.json is invalid JSON, its permission rules were not merged"
+        return 0
+    fi
 
-# Check if project has custom skills
-if [[ -d "/workspace/project/.claude/skills" ]]; then
-    echo "Found project-specific skills in /workspace/project/.claude/skills/"
+    if [[ ! -f "$container_settings" ]]; then
+        mkdir -p "$(dirname "$container_settings")"
+        echo '{}' > "$container_settings"
+    elif [[ "$(jq type "$container_settings" 2>/dev/null)" != "\"object\"" ]]; then
+        echo "Warning: Container settings.json is invalid JSON, project permission rules were not merged"
+        return 0
+    fi
 
-    # Copy all files from project skills to container bin
-    # Using cp -r to preserve directory structure and -n to not overwrite existing files
-    cp -rn /workspace/project/.claude/skills/* /workspace/.claude/skills/ 2>/dev/null || true
+    # shellcheck disable=SC2016
+    if jq -s --arg root "/workspace/project" '
+        def path_rule: "^(?<tool>Read|Edit)\\((?<path>.*)\\)$";
+        def rebase($kind):
+            if test(path_rule) then
+                capture(path_rule) as $rule
+                | if ($rule.path | startswith("//")) or ($rule.path | startswith("~/")) then .
+                  else
+                    ($rule.path | sub("^\\./"; "")) as $relative
+                    | (if ($rule.path | startswith("/")) then ($rule.path | ltrimstr("/"))
+                       elif ($relative | contains("/") | not) then "**/" + $relative
+                       elif $kind != "allow" and ($relative | test("^[^/*]+/\\*\\*$")) then "**/" + $relative
+                       else $relative end) as $anchored
+                    | "\($rule.tool)(/\($root)/\($anchored))"
+                  end
+            else . end;
+        def unique_in_order: reduce .[] as $item ([]; if any(.[]; . == $item) then . else . + [$item] end);
 
-    echo "Project skills copied to container"
-fi
+        (.[1].permissions // {}) as $project
+        | .[0]
+        | reduce ("allow", "ask", "deny") as $kind (.;
+            if ($project[$kind] | type) == "array" then
+                .permissions[$kind] = (
+                    (.permissions[$kind] // [])
+                    + [$project[$kind][] | strings | select(test("^(Read|Edit)\\(!") | not) | rebase($kind)]
+                    | unique_in_order)
+            else . end)
+        ' "$container_settings" "$project_settings" > "$merged_settings" 2>/dev/null && [[ -s "$merged_settings" ]]; then
+        mv "$merged_settings" "$container_settings"
+        echo "Project permission rules merged into container settings"
+    else
+        rm -f "$merged_settings"
+        echo "Warning: Merging project permission rules failed, keeping original container settings"
+    fi
+}
+
+merge_project_permissions
 
 # Check if project has settings.local.json
 if [[ -f "/workspace/project/.claude/settings.local.json" ]]; then

@@ -29,6 +29,26 @@ load test_helper
     assert_output_contains "Deny patterns found:"
 }
 
+@test "1.3: file path rules use Read or Edit, the only tools file permission checks consult" {
+    run node -e "
+        const settings = JSON.parse(require('fs').readFileSync('$BATS_TEST_DIRNAME/../assets/.claude/settings.json', 'utf8'));
+        const rules = [...(settings.permissions.allow || []), ...(settings.permissions.ask || []), ...(settings.permissions.deny || [])];
+        const ignored = rules.filter(rule => /^(Write|MultiEdit|NotebookEdit|Glob|LS)\\(/.test(rule));
+        if (ignored.length) { console.log('Never matched:', ignored.join(', ')); process.exit(1); }
+    "
+    assert_success
+}
+
+@test "1.4: absolute Read/Edit paths use the // prefix" {
+    run node -e "
+        const settings = JSON.parse(require('fs').readFileSync('$BATS_TEST_DIRNAME/../assets/.claude/settings.json', 'utf8'));
+        const rules = [...(settings.permissions.allow || []), ...(settings.permissions.ask || []), ...(settings.permissions.deny || [])];
+        const misanchored = rules.filter(rule => /^(Read|Edit)\\(\\/(workspace|opt|Users|home|tmp)\\//.test(rule));
+        if (misanchored.length) { console.log('Anchored to the settings source, not the filesystem root:', misanchored.join(', ')); process.exit(1); }
+    "
+    assert_success
+}
+
 # Test 2: Deny pattern validation - positive matches (should be denied)
 
 @test "2.1: blocks exact .env files" {
