@@ -203,6 +203,18 @@ vulnerabilities:
     statement: Not exploitable - net/url quadratic DoS requires parsing attacker-controlled URLs at scale; tflint handles only its own trusted plugin/source URLs. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
   - id: CVE-2026-56862
     statement: Not exploitable - crypto/tls KeyUpdate DoS requires an exposed TLS server; tflint runs none. Cannot patch compiled Go binary, awaiting upstream release with Go 1.25.13+ or 1.26.6+
+  # Go stdlib / x/net / x/text DoS set (fixed Go 1.26.9 / 1.27.2, x/net 0.60.0, x/text 0.41.0)
+  # Affects terraform 1.16.6, tflint 0.64.0, docker-compose 5.6.0 (compiled Go binaries)
+  # Latest upstream releases are still built with Go 1.26.8 (terraform, compose) and Go 1.26.3 +
+  # x/net 0.56.0 + x/text 0.39.0 (tflint); tflint main has the fixed modules but no release yet.
+  - id: CVE-2026-78667
+    statement: Not exploitable - net/http Range-header DoS targets HTTP servers; terraform, tflint and docker-compose act only as HTTP clients. Cannot patch compiled Go binary, awaiting upstream release with Go 1.26.9+ or 1.27.2+
+  - id: CVE-2026-78669
+    statement: HTTP/2 SETTINGS-flood DoS needs a malicious HTTP/2 peer; these tools connect only to trusted registries, provider sources and the local Docker daemon. Cannot patch compiled Go binary, awaiting upstream release with Go 1.26.9+ or 1.27.2+ and golang.org/x/net 0.60.0+
+  - id: CVE-2026-97031
+    statement: crypto/tls ECH outer-extension DoS needs a malicious TLS peer; these tools make outbound TLS only to trusted endpoints. Cannot patch compiled Go binary, awaiting upstream release with Go 1.26.9+ or 1.27.2+
+  - id: CVE-2026-56851
+    statement: Not exploitable - golang.org/x/text precis Nickname-profile panic requires normalising attacker-supplied nicknames; tflint parses only local Terraform/HCL. Cannot patch compiled Go binary, awaiting upstream release with golang.org/x/text 0.41.0+
 
   # http-cache-semantics <=4.2.0 cross-user cached-response disclosure via max-stale (npm bundled copy)
   # Disputed advisory with NO official fixed version (first_patched_version: null); the maintainer

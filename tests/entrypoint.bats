@@ -128,195 +128,39 @@ load test_helper
     assert_output_contains "ERROR: docker-compose.override.yml file found!"
 }
 
-# Test 4: Command copying functionality - No commands
+# Test 4: Project commands and skills load in place through --add-dir, not copied
 
-@test "4.1: handles missing .claude/commands directory gracefully" {
-    # Don't create .claude/commands directory
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    refute_output_contains "Found project-specific commands"
-    refute_output_contains "Project commands copied"
-}
-
-@test "4.2: handles empty .claude/commands directory" {
+@test "4.1: does not copy project commands into the container" {
     mkdir -p "$TEST_PROJECT/.claude/commands"
-    
+    create_file "$TEST_PROJECT/.claude/commands/test-cmd.md" "project command"
+
     run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
+
     assert_success
-    assert_output_contains "Found project-specific commands"
-    assert_output_contains "Project commands copied to container"
+    assert_file_not_exists "$TEST_WORKSPACE/.claude/commands/test-cmd.md"
 }
 
-# Test 5: Command copying functionality - Basic operations
+@test "4.2: does not copy project skills into the container" {
+    mkdir -p "$TEST_PROJECT/.claude/skills/probe"
+    create_file "$TEST_PROJECT/.claude/skills/probe/SKILL.md" "project skill"
 
-@test "5.1: copies basic command file" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    create_file "$TEST_PROJECT/.claude/commands/test-cmd.sh" "#!/bin/bash\necho test"
-    
     run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
+
     assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/test-cmd.sh"
-    assert_file_contains "$TEST_WORKSPACE/.claude/commands/test-cmd.sh" "echo test"
-    assert_output_contains "Project commands copied to container"
+    assert_file_not_exists "$TEST_WORKSPACE/.claude/skills/probe/SKILL.md"
 }
 
-@test "5.2: copies multiple command files" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    create_file "$TEST_PROJECT/.claude/commands/cmd1.sh" "echo cmd1"
-    create_file "$TEST_PROJECT/.claude/commands/cmd2.sh" "echo cmd2"
-    create_file "$TEST_PROJECT/.claude/commands/cmd3.sh" "echo cmd3"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/cmd1.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/cmd2.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/cmd3.sh"
-}
+@test "4.3: leaves the image's own skills in place" {
+    create_file "$TEST_WORKSPACE/.claude/skills/fix-cve/SKILL.md" "image skill"
+    create_file "$TEST_PROJECT/.claude/skills/fix-cve/SKILL.md" "project skill"
 
-@test "5.3: preserves nested directory structure" {
-    mkdir -p "$TEST_PROJECT/.claude/commands/category1/subcategory"
-    mkdir -p "$TEST_PROJECT/.claude/commands/category2"
-    create_file "$TEST_PROJECT/.claude/commands/category1/cmd1.sh" "cmd1"
-    create_file "$TEST_PROJECT/.claude/commands/category1/subcategory/cmd2.sh" "cmd2"
-    create_file "$TEST_PROJECT/.claude/commands/category2/cmd3.sh" "cmd3"
-    
     run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_dir_exists "$TEST_WORKSPACE/.claude/commands/category1"
-    assert_dir_exists "$TEST_WORKSPACE/.claude/commands/category1/subcategory"
-    assert_dir_exists "$TEST_WORKSPACE/.claude/commands/category2"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/category1/cmd1.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/category1/subcategory/cmd2.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/category2/cmd3.sh"
-}
 
-@test "5.4: respects no-overwrite flag - does not overwrite existing files" {
-    mkdir -p "$TEST_WORKSPACE/.claude/commands"
-    create_file "$TEST_WORKSPACE/.claude/commands/existing.sh" "original content"
-    
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    create_file "$TEST_PROJECT/.claude/commands/existing.sh" "new content"
-    create_file "$TEST_PROJECT/.claude/commands/new.sh" "new file"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
     assert_success
-    assert_file_contains "$TEST_WORKSPACE/.claude/commands/existing.sh" "original content"
-    refute_file_contains "$TEST_WORKSPACE/.claude/commands/existing.sh" "new content"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/new.sh"
-}
-
-@test "5.5: handles special characters in filenames" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    touch "$TEST_PROJECT/.claude/commands/command with spaces.sh"
-    touch "$TEST_PROJECT/.claude/commands/command-with-dashes.sh"
-    touch "$TEST_PROJECT/.claude/commands/command_with_underscores.sh"
-    touch "$TEST_PROJECT/.claude/commands/command.multiple.dots.sh"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/command with spaces.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/command-with-dashes.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/command_with_underscores.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/command.multiple.dots.sh"
-}
-
-@test "5.6: preserves file permissions" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    create_file "$TEST_PROJECT/.claude/commands/executable.sh" "#!/bin/bash\necho executable"
-    make_executable "$TEST_PROJECT/.claude/commands/executable.sh"
-    
-    create_file "$TEST_PROJECT/.claude/commands/non-executable.sh" "echo non-executable"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_executable "$TEST_WORKSPACE/.claude/commands/executable.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/non-executable.sh"
-    ! [[ -x "$TEST_WORKSPACE/.claude/commands/non-executable.sh" ]] || { echo "non-executable.sh should not be executable" >&2; return 1; }
-}
-
-@test "5.7: handles copy errors gracefully" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    create_file "$TEST_PROJECT/.claude/commands/test.sh" "test content"
-    
-    # Make destination directory read-only to force copy error
-    mkdir -p "$TEST_WORKSPACE/.claude/commands"
-    chmod -w "$TEST_WORKSPACE/.claude/commands"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    # Should still succeed due to || true in the script
-    assert_success
-    assert_output_contains "Project commands copied to container"
-    
-    # Restore permissions for cleanup
-    chmod +w "$TEST_WORKSPACE/.claude/commands"
-}
-
-@test "5.8: handles mixed file types" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    
-    # Regular files
-    create_file "$TEST_PROJECT/.claude/commands/script.sh" "#!/bin/bash"
-    create_file "$TEST_PROJECT/.claude/commands/README.md" "Documentation"
-    
-    # Different permissions
-    make_executable "$TEST_PROJECT/.claude/commands/script.sh"
-    
-    # Note: cp -r with /* won't copy hidden files, which is expected behavior
-    # create_file "$TEST_PROJECT/.claude/commands/.hidden" "hidden content"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/script.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/README.md"
-    # Hidden files are not copied due to /* glob pattern, which is expected
-    assert_file_executable "$TEST_WORKSPACE/.claude/commands/script.sh"
-}
-
-@test "5.9: handles large number of files" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    
-    # Create 50 test files
-    for i in {1..50}; do
-        create_file "$TEST_PROJECT/.claude/commands/cmd$i.sh" "echo $i"
-    done
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    assert_success
-    
-    # Verify a sample of files were copied
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/cmd1.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/cmd25.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/commands/cmd50.sh"
+    assert_file_contains "$TEST_WORKSPACE/.claude/skills/fix-cve/SKILL.md" "image skill"
 }
 
 # Test 6: Edge cases and error scenarios
-
-@test "6.1: handles missing destination directory gracefully" {
-    mkdir -p "$TEST_PROJECT/.claude/commands"
-    create_file "$TEST_PROJECT/.claude/commands/test.sh" "test"
-    
-    # Remove the destination commands directory
-    rm -rf "$TEST_WORKSPACE/.claude/commands"
-    
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-    
-    # Should succeed due to || true, but files won't be copied
-    assert_success
-    assert_output_contains "Project commands copied to container"
-    # File won't exist because cp can't create parent directory with /* glob
-    assert_file_not_exists "$TEST_WORKSPACE/.claude/commands/test.sh"
-}
 
 @test "6.2: command execution continues after pre-flight checks" {
     run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser sh -c "echo 'complex command' && exit 42"
@@ -777,192 +621,6 @@ load test_helper
     assert_file_contains "$TEST_WORKSPACE/.mcp.json" '"AWS_DOCUMENTATION_PARTITION"'
 }
 
-# Test 12: Skills copying functionality - No skills
-
-@test "12.1: handles missing .claude/skills directory gracefully" {
-    # Don't create .claude/skills directory
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    refute_output_contains "Found project-specific skills"
-    refute_output_contains "Project skills copied"
-}
-
-@test "12.2: handles empty .claude/skills directory" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_output_contains "Found project-specific skills"
-    assert_output_contains "Project skills copied to container"
-}
-
-# Test 13: Skills copying functionality - Basic operations
-
-@test "13.1: copies basic skill file" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-    create_file "$TEST_PROJECT/.claude/skills/test-skill.md" "# Test Skill\nThis is a test skill"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/test-skill.md"
-    assert_file_contains "$TEST_WORKSPACE/.claude/skills/test-skill.md" "Test Skill"
-    assert_output_contains "Project skills copied to container"
-}
-
-@test "13.2: copies multiple skill files" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-    create_file "$TEST_PROJECT/.claude/skills/skill1.md" "skill1 content"
-    create_file "$TEST_PROJECT/.claude/skills/skill2.md" "skill2 content"
-    create_file "$TEST_PROJECT/.claude/skills/skill3.md" "skill3 content"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill1.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill2.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill3.md"
-}
-
-@test "13.3: preserves nested directory structure in skills" {
-    mkdir -p "$TEST_PROJECT/.claude/skills/category1/subcategory"
-    mkdir -p "$TEST_PROJECT/.claude/skills/category2"
-    create_file "$TEST_PROJECT/.claude/skills/category1/skill1.md" "skill1"
-    create_file "$TEST_PROJECT/.claude/skills/category1/subcategory/skill2.md" "skill2"
-    create_file "$TEST_PROJECT/.claude/skills/category2/skill3.md" "skill3"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_dir_exists "$TEST_WORKSPACE/.claude/skills/category1"
-    assert_dir_exists "$TEST_WORKSPACE/.claude/skills/category1/subcategory"
-    assert_dir_exists "$TEST_WORKSPACE/.claude/skills/category2"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/category1/skill1.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/category1/subcategory/skill2.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/category2/skill3.md"
-}
-
-@test "13.4: respects no-overwrite flag for skills" {
-    mkdir -p "$TEST_WORKSPACE/.claude/skills"
-    create_file "$TEST_WORKSPACE/.claude/skills/existing.md" "original content"
-
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-    create_file "$TEST_PROJECT/.claude/skills/existing.md" "new content"
-    create_file "$TEST_PROJECT/.claude/skills/new.md" "new file"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_file_contains "$TEST_WORKSPACE/.claude/skills/existing.md" "original content"
-    refute_file_contains "$TEST_WORKSPACE/.claude/skills/existing.md" "new content"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/new.md"
-}
-
-@test "13.5: handles special characters in skill filenames" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-    touch "$TEST_PROJECT/.claude/skills/skill with spaces.md"
-    touch "$TEST_PROJECT/.claude/skills/skill-with-dashes.md"
-    touch "$TEST_PROJECT/.claude/skills/skill_with_underscores.md"
-    touch "$TEST_PROJECT/.claude/skills/skill.multiple.dots.md"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill with spaces.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill-with-dashes.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill_with_underscores.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill.multiple.dots.md"
-}
-
-@test "13.6: preserves file permissions for skills" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-    create_file "$TEST_PROJECT/.claude/skills/executable-skill.sh" "#!/bin/bash\necho executable"
-    make_executable "$TEST_PROJECT/.claude/skills/executable-skill.sh"
-
-    create_file "$TEST_PROJECT/.claude/skills/non-executable.md" "markdown content"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_file_executable "$TEST_WORKSPACE/.claude/skills/executable-skill.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/non-executable.md"
-    ! [[ -x "$TEST_WORKSPACE/.claude/skills/non-executable.md" ]] || { echo "non-executable.md should not be executable" >&2; return 1; }
-}
-
-@test "13.7: handles skills copy errors gracefully" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-    create_file "$TEST_PROJECT/.claude/skills/test.md" "test content"
-
-    # Make destination directory read-only to force copy error
-    mkdir -p "$TEST_WORKSPACE/.claude/skills"
-    chmod -w "$TEST_WORKSPACE/.claude/skills"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    # Should still succeed due to || true in the script
-    assert_success
-    assert_output_contains "Project skills copied to container"
-
-    # Restore permissions for cleanup
-    chmod +w "$TEST_WORKSPACE/.claude/skills"
-}
-
-@test "13.8: handles mixed file types in skills" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-
-    # Regular files
-    create_file "$TEST_PROJECT/.claude/skills/skill.md" "# Skill markdown"
-    create_file "$TEST_PROJECT/.claude/skills/skill.sh" "#!/bin/bash"
-    create_file "$TEST_PROJECT/.claude/skills/README.txt" "Documentation"
-
-    # Different permissions
-    make_executable "$TEST_PROJECT/.claude/skills/skill.sh"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill.sh"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/README.txt"
-    assert_file_executable "$TEST_WORKSPACE/.claude/skills/skill.sh"
-}
-
-@test "13.9: handles large number of skill files" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-
-    # Create 50 test files
-    for i in {1..50}; do
-        create_file "$TEST_PROJECT/.claude/skills/skill$i.md" "skill $i content"
-    done
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    assert_success
-
-    # Verify a sample of files were copied
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill1.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill25.md"
-    assert_file_exists "$TEST_WORKSPACE/.claude/skills/skill50.md"
-}
-
-@test "13.10: handles missing destination skills directory gracefully" {
-    mkdir -p "$TEST_PROJECT/.claude/skills"
-    create_file "$TEST_PROJECT/.claude/skills/test.md" "test"
-
-    # Remove the destination skills directory
-    rm -rf "$TEST_WORKSPACE/.claude/skills"
-
-    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
-
-    # Should succeed due to || true, but files won't be copied
-    assert_success
-    assert_output_contains "Project skills copied to container"
-    # File won't exist because cp can't create parent directory with /* glob
-    assert_file_not_exists "$TEST_WORKSPACE/.claude/skills/test.md"
-}
-
 # Test 14: Settings.local.json copying functionality
 
 @test "14.1: handles missing settings.local.json gracefully" {
@@ -1117,4 +775,134 @@ load test_helper
 
     assert_success
     assert_output_contains "dirs=[]"
+}
+
+# Test 17: Project permission rules merged into container settings
+
+write_container_settings() {
+    create_file "$TEST_WORKSPACE/.claude/settings.json" "$1"
+}
+
+write_project_settings() {
+    create_file "$TEST_PROJECT/.claude/settings.json" "$1"
+}
+
+container_rules() {
+    jq -c ".permissions.$1" "$TEST_WORKSPACE/.claude/settings.json"
+}
+
+@test "17.1: leaves container settings untouched when the project has no settings.json" {
+    write_container_settings '{"permissions":{"allow":["WebSearch"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    refute_output_contains "Project permission rules merged"
+    [[ "$(container_rules allow)" == '["WebSearch"]' ]]
+}
+
+@test "17.2: appends project allow, ask and deny rules after the container's" {
+    write_container_settings '{"permissions":{"allow":["WebSearch"],"deny":["Read(**/.env)"]},"env":{"KEEP":"1"}}'
+    write_project_settings '{"permissions":{"allow":["Bash(run-linters:*)"],"ask":["Bash(git push:*)"],"deny":["Bash(rm -rf:*)"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Project permission rules merged into container settings"
+    [[ "$(container_rules allow)" == '["WebSearch","Bash(run-linters:*)"]' ]]
+    [[ "$(container_rules ask)" == '["Bash(git push:*)"]' ]]
+    [[ "$(container_rules deny)" == '["Read(**/.env)","Bash(rm -rf:*)"]' ]]
+    [[ "$(jq -r .env.KEEP "$TEST_WORKSPACE/.claude/settings.json")" == "1" ]]
+}
+
+@test "17.3: does not duplicate rules and is idempotent across restarts" {
+    write_container_settings '{"permissions":{"allow":["WebSearch"]}}'
+    write_project_settings '{"permissions":{"allow":["WebSearch","Bash(run-tests:*)","Edit(/src/**)"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+    assert_success
+    local first_run
+    first_run="$(cat "$TEST_WORKSPACE/.claude/settings.json")"
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+    assert_success
+
+    [[ "$(cat "$TEST_WORKSPACE/.claude/settings.json")" == "$first_run" ]]
+    [[ "$(jq '.permissions.allow | length' "$TEST_WORKSPACE/.claude/settings.json")" == "3" ]]
+}
+
+@test "17.4: re-anchors Read/Edit path rules to the project mount" {
+    write_container_settings '{}'
+    write_project_settings '{"permissions":{
+        "allow":["Edit(/src/**)","Edit(./docs/**)","Edit(src/**)","Edit(src/components/**)","Read(**/*.md)","Edit(//tmp/scratch/**)","Read(~/notes/**)","Bash(ls /src)"],
+        "deny":["Read(.env)","Read(*.pem)","Read(secrets/**)","Read(/private/**)"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    local root="/$TEST_PROJECT"
+    [[ "$(container_rules allow)" == "[\"Edit($root/src/**)\",\"Edit($root/docs/**)\",\"Edit($root/src/components/**)\",\"Read($root/**/*.md)\",\"Edit(//tmp/scratch/**)\",\"Read(~/notes/**)\",\"Bash(ls /src)\"]" ]]
+    [[ "$(container_rules deny)" == "[\"Read($root/**/.env)\",\"Read($root/**/*.pem)\",\"Read($root/**/secrets/**)\",\"Read($root/private/**)\"]" ]]
+}
+
+@test "17.5: keeps a single-segment allow pattern at the top level only" {
+    write_container_settings '{}'
+    write_project_settings '{"permissions":{"allow":["Edit(src/**)"],"deny":["Edit(src/**)"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    [[ "$(container_rules allow)" == "[\"Edit(/$TEST_PROJECT/src/**)\"]" ]]
+    [[ "$(container_rules deny)" == "[\"Edit(/$TEST_PROJECT/**/src/**)\"]" ]]
+}
+
+@test "17.6: drops negation rules, which cannot carve out anchored rules" {
+    write_container_settings '{}'
+    write_project_settings '{"permissions":{"deny":["Read(*.env)","Read(!sample.env)"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    [[ "$(container_rules deny)" == "[\"Read(/$TEST_PROJECT/**/*.env)\"]" ]]
+}
+
+@test "17.7: warns and keeps container settings when project settings.json is invalid" {
+    write_container_settings '{"permissions":{"allow":["WebSearch"]}}'
+    write_project_settings '{ invalid json'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Warning: Project settings.json is invalid JSON"
+    [[ "$(container_rules allow)" == '["WebSearch"]' ]]
+}
+
+@test "17.8: warns and keeps container settings when they are invalid" {
+    write_container_settings '{ invalid json'
+    write_project_settings '{"permissions":{"allow":["Bash(run-tests:*)"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    assert_output_contains "Warning: Container settings.json is invalid JSON"
+    assert_file_contains "$TEST_WORKSPACE/.claude/settings.json" "invalid json"
+}
+
+@test "17.9: creates container settings when the image has none" {
+    write_project_settings '{"permissions":{"allow":["Bash(run-tests:*)"]}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    [[ "$(container_rules allow)" == '["Bash(run-tests:*)"]' ]]
+}
+
+@test "17.10: ignores project settings without permissions" {
+    write_container_settings '{"permissions":{"allow":["WebSearch"]}}'
+    write_project_settings '{"enabledPlugins":{"x@y":true}}'
+
+    run_entrypoint_with_env HOST_PWD=/test/path HOST_USER=testuser echo "test"
+
+    assert_success
+    [[ "$(jq -c . "$TEST_WORKSPACE/.claude/settings.json")" == '{"permissions":{"allow":["WebSearch"]}}' ]]
 }

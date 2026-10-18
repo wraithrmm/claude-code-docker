@@ -34,6 +34,17 @@ See [bin/README.md](bin/README.md) for options (`--host-network`, `--dry-run`, e
 
 Note: The container includes pre-configured MCP servers (like Playwright) in `/workspace/.mcp.json`. If your project has a `.claude/.mcp.json` file, it will be automatically merged with the container's MCP configuration on startup, with project servers taking precedence.
 
+## Loading the Mounted Project's `.claude/`
+
+Claude runs from `/workspace` while the codebase is mounted at `/workspace/project`, and Claude Code only discovers project agents, skills, commands and rules from the working directory upwards. Two pieces make the mount's configuration load (table in [README.md](README.md#how-the-container-loads-your-claude)):
+
+- **`assets/claude-wrapper`** is installed as `/usr/local/bin/claude`, ahead of the npm `/usr/bin/claude` on PATH, so `claude update` keeps it. It prepends `--add-dir=/workspace/project` (the `=` form matters: `--add-dir` is variadic and the space form swallows a following prompt). It skips subcommands, sessions started inside the project and calls that already pass the mount. The Dockerfile sets `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` so the mount's `CLAUDE.md` and `.claude/rules/` load too.
+- **`merge_project_permissions`** in `assets/entrypoint.sh` merges the project's `permissions.allow/ask/deny` into `/workspace/.claude/settings.json`, because `--add-dir` loads only `enabledPlugins` and `extraKnownMarketplaces` from an added directory's settings. `Read`/`Edit` path rules are re-anchored to `//workspace/project/...` with the same matching depth.
+
+When adding the wrapper's subcommand skip list, take the names from the `Commands:` section of `claude --help`.
+
+Absolute paths in permission rules need a `//` prefix: a single leading `/` anchors at the settings file's working directory, so `Edit(/workspace/project/x)` in `/workspace/.claude/settings.json` matches `/workspace/workspace/project/x`. File rules must use `Edit(...)`/`Read(...)`; `Write(...)` and `MultiEdit(...)` path rules are never consulted.
+
 ## Security Scanning
 
 The repository includes `.trivyignore` to suppress base image security warnings (DS002) since the base image runs as root by design.
@@ -133,7 +144,7 @@ Do not add container-specific development instructions (like testing this contai
 
 ## Claude Code Hooks
 
-The container includes pre-configured Claude Code hooks that enforce deterministic behavior. These hooks are packaged into the final Docker image and affect Claude Code behavior when running inside the container on any codebase.
+The image can ship Claude Code hooks that apply to every project run in the container. **It ships none today**: `assets/.claude/settings.json` has no `hooks` key.
 
 ### Hook File Locations
 
@@ -145,26 +156,7 @@ The container includes pre-configured Claude Code hooks that enforce determinist
 
 **Flow**: `assets/.claude/settings.json` → copied to `/workspace/.claude/settings.json` in container → active for all projects
 
-### Current Hooks
-
-| Hook | Type | Purpose |
-|------|------|---------|
-| **Stop** | Prompt-based | Reminds Claude to run tests/linters after making code changes |
-
-### Stop Hook Behavior
-
-The Stop hook runs when Claude finishes responding and:
-
-1. **Checks for code changes**: Looks for Edit, Write, or MultiEdit tool usage in the session
-2. **Checks for testing**: Looks for `workflow:lint-runner` or `workflow:unit-test-runner` sub-agent invocations
-3. **Reminds if needed**: If code was changed but testing wasn't run, reminds Claude to use the sub-agents
-4. **Prevents loops**: If already reminded once (stop_hook_active=true), allows stopping
-
-This ensures Claude considers running the `run-tests` and `run-linters` helper scripts (via their respective sub-agents) after making changes.
-
-### Hook Configuration Format
-
-Hooks to be added to the final Docker Image are configured in `assets/.claude/settings.json` under the `hooks` key:
+Hooks in a mounted project's own `.claude/settings.json` are not loaded: sessions start in `/workspace`, Claude Code reads hooks only from the working directory's `.claude/`, and the entrypoint merges only permission rules.
 
 ### Managing Hooks in This Repository
 
@@ -174,11 +166,6 @@ Hooks to be added to the final Docker Image are configured in `assets/.claude/se
 3. For command-based hooks, create scripts in `assets/.claude/hooks/`
 4. Run `./.claude/bin/run-linters` to validate JSON syntax
 5. Test by building and running the Docker image
-
-**Modifying an existing hook**:
-1. Edit the hook configuration in `assets/.claude/settings.json`
-2. Run `./.claude/bin/run-linters` to validate
-3. Rebuild Docker image to test changes
 
 **Testing hooks**:
 1. Build the Docker image locally: `docker build -f Dockerfile -t claude-code-docker:local .`
@@ -195,7 +182,7 @@ Hooks to be added to the final Docker Image are configured in `assets/.claude/se
 - Hooks in `assets/.claude/settings.json` go into the **final Docker image**, not the current dev environment
 - Changes require rebuilding the Docker image to take effect
 - The `timeout` value (in seconds) prevents hooks from hanging indefinitely
-- Prompt-based hooks use additional LLM tokens but provide intelligent analysis
+- Prompt-based hooks use additional LLM tokens
 - Always validate changes with `./.claude/bin/run-linters` before committing
 
 **Reference**: [Claude Code Hooks Documentation](https://code.claude.com/docs/en/hooks)

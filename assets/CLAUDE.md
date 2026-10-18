@@ -2,7 +2,6 @@
 
 - This file provides guidance to Claude Code (claude.ai/code) when working with ALL code.
 - This file contains critical instructions you must always follow.
-- This file MUST be read at the start of EVERY new conversation to ensure all guidelines are followed.
 - You must always announce that you are following the CLAUDE.md process working through any code issue or change.
 
 ## CRITICAL: Show a Preference For AI Helper Scripts
@@ -11,42 +10,35 @@
 
 The workflow scripts (projects, tasks, ai-playground) are run through the `workflow` plugin's skills; invoke the skill rather than calling the script directly.
 
-## CRITICAL: Always Read Project-Specific Instructions Before Doing Work or Planning
+## CRITICAL: Project-Specific Instructions Override These
 
-**MANDATORY**: When working with any codebase, you MUST ALWAYS check for and read any `CLAUDE.md` file in
-the `/workspace/project` directory before taking any action. The `/workspace/project/CLAUDE.md` file contains project-specific instructions that override these general guidelines in any case where they conflict.
+The mounted project's `CLAUDE.md`, `.claude/rules/`, agents, skills and commands are loaded into the session automatically, and a nested `CLAUDE.md` loads when you work on files in its directory. Do not re-read them with the Read tool; they are already in context. Where project instructions conflict with these general guidelines, the project instructions win.
 
 ## CRITICAL: Always Follow the "Master Project Workflow"
 
 **CRITICAL**: You must always follow the master workflow when planning and executing work. See the "Master Project Workflow" section below.
 
-## MANDATORY: Check CLAUDE.md Files Before Searching for Solutions
+## MANDATORY: Use the Documented Commands Before Searching for Solutions
 
-**STOP AND READ**: Before attempting to figure out how to do ANY task (running tests, linting, building, deploying, etc.), you MUST:
+**STOP**: Before attempting to figure out how to do ANY task (running tests, linting, building, deploying, etc.), you MUST:
 
-1. **First**: Read the relevant directory's `CLAUDE.md` file where you're working
-2. **Second**: Follow the instructions in that CLAUDE.md file EXACTLY
-3. **Third**: If the CLAUDE.md references other CLAUDE.md files, read those too
+1. **First**: Look for the command in the CLAUDE.md instructions already loaded for the project and the directory you're working in
+2. **Second**: Follow those instructions EXACTLY
+3. **Third**: If a CLAUDE.md points to another document that is not already loaded (for example a test-specific guide), read that document
 
 **VIOLATION EXAMPLES** (Things you must NOT do):
 
 - ❌ Running `find` commands to search for test files or configurations
 - ❌ Trying to figure out build commands by examining scripts
-- ❌ Looking for phpunit.xml or other config files to understand how to run tests
+- ❌ Looking for test runner config files to understand how to run tests
 - ❌ Guessing at command syntax based on file names or directory structures
 
 **CORRECT APPROACH**:
 
-- ✅ Read the CLAUDE.md file in the directory you're working in
 - ✅ Use the exact commands specified in the CLAUDE.md files
 - ✅ Follow the documented helper scripts and tools
 
-**Common tasks and their CLAUDE.md locations**:
-
-- Running tests → Check `CLAUDE.md` which points to test-specific CLAUDE.md files
-- Linting → Check `CLAUDE.md` for linting commands
-- Building → Check relevant directory's CLAUDE.md
-- Any other task → ALWAYS check CLAUDE.md first
+Running tests, linting, building or any other task: the CLAUDE.md instructions come first.
 
 Remember: The CLAUDE.md files contain accumulated project knowledge. Searching for solutions yourself wastes time and leads to incorrect approaches.
 
@@ -69,7 +61,6 @@ Remember: The CLAUDE.md files contain accumulated project knowledge. Searching f
 
 - **Your current directory**: `/workspace` (default working directory)
 - **Codebase location**: `/workspace/project` - This is where all managed codebases will be mounted
-- **Always check**: `/workspace/project/CLAUDE.md` for project-specific instructions before proceeding with any task
 
 ## Docker-in-Docker Context
 
@@ -89,8 +80,9 @@ Note: Both `HOST_PWD` and `HOST_USER` must be set when running the Claude Code c
 **IMPORTANT**: When working in this container, git has specific limitations you must be aware of:
 
 - **Local operations work**: You can stage files, create branches, view diffs/logs, etc.
-- **Remote operations fail**: Cannot push, pull, fetch, or clone private repos (no authentication available)
-- **All remote git operations must be done on host**: Instruct users to perform push/pull operations outside the container
+- **The container has no git credentials of its own**: plain `git push`, `pull`, `fetch` and cloning private repos fail
+- **Use the project's remote helper when it has one**: if the project documents an authenticated helper for pushing, fetching or opening pull requests, use it for remote operations
+- **Otherwise remote operations are done on the host**: instruct users to perform push/pull operations outside the container
 
 ### Git Identity for Commits
 
@@ -113,26 +105,25 @@ Any message containing these words/phrases MUST trigger this process:
 
 Before implementing any changes (including bug fixes, error corrections, or minor fixes):
 
-1. Check if `/workspace/project/CLAUDE.md` exists and read it
-2. Navigate to `/workspace/project` to work with the mounted codebase
-3. Stop when you encounter an error or need to make any code change - treat ALL modifications with the same rigor
-4. Consider all changes that will be necessary, and check whether an available skill covers the implementation pattern
-5. Consult official documentation sources listed in CLAUDE.md (especially for external libraries) to confirm your proposed approach is appropriate and follows best practices
-6. Review these changes to ensure they are appropriate and bug-free
-7. If you identify issues or bugs, iterate on alternative solutions that meet the requirements without issues
-8. As you work through different versions, output information about what you are doing and why
-9. When using external library APIs (like GrapesJS):
+1. Navigate to `/workspace/project` to work with the mounted codebase
+2. Stop when you encounter an error or need to make any code change - treat ALL modifications with the same rigor
+3. Consider all changes that will be necessary, and check whether an available skill covers the implementation pattern
+4. Consult official documentation sources listed in CLAUDE.md (especially for external libraries) to confirm your proposed approach is appropriate and follows best practices
+5. Review these changes to ensure they are appropriate and bug-free
+6. If you identify issues or bugs, iterate on alternative solutions that meet the requirements without issues
+7. As you work through different versions, output information about what you are doing and why
+8. When using external library APIs:
    - Always verify that methods and properties exist before using them
    - Never assume an API method exists based on naming conventions or similar libraries
-10. After finding an appropriate solution, present a descriptive summary of all required changes
-11. After implementing any code changes, always provide a "Potential Side Effects and Issues" section that includes:
+9. After finding an appropriate solution, present a descriptive summary of all required changes
+10. After implementing any code changes, always provide a "Potential Side Effects and Issues" section that includes:
 
 - Race conditions or timing issues
 - Edge cases that might not be fully handled
 - Performance implications
 - Scenarios where the fix might not work as expected
 
-**VIOLATION CHECK**: If you find yourself writing Edit, Write, or MultiEdit commands without having explicitly followed the above process, STOP immediately and restart following the process.
+**VIOLATION CHECK**: If you find yourself writing Edit or Write commands without having explicitly followed the above process, STOP immediately and restart following the process.
 
 ## Code Style Guidelines
 
@@ -146,7 +137,7 @@ Before implementing any changes (including bug fixes, error corrections, or mino
 
 ## Web Search Guidelines
 
-- Use library names (for example GrapeJS) combined with generic functionality terms for more effective searches
+- Use library names combined with generic functionality terms for more effective searches
 
 ## Change Tracking Guidelines
 
@@ -165,9 +156,8 @@ Before implementing any changes (including bug fixes, error corrections, or mino
 
 ### External Library Documentation
 
-- Always review online documentation over analysing library source code for libraries, including the following.
-- If you are in doubt as to what is a 3rd party library, ask, and then update this section as per the response
-
+- Always review online documentation over analysing library source code for libraries.
+- If you are in doubt as to what is a 3rd party library, ask.
 
 ## Master Project Workflow
 

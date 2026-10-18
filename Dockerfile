@@ -261,5 +261,13 @@ RUN chmod +x /entrypoint.sh
 COPY assets/claude-unsafe /usr/local/bin/claude-unsafe
 RUN chmod +x /usr/local/bin/claude-unsafe
 
+# Wrap claude so every session adds the mounted project with --add-dir, loading its
+# agents, skills, commands, CLAUDE.md and .claude/rules/ (sessions start in /workspace,
+# where Claude Code would not discover them). /usr/local/bin precedes the npm-installed
+# /usr/bin/claude on PATH, so `claude update` leaves the wrapper in place.
+COPY assets/claude-wrapper /usr/local/bin/claude
+RUN chmod +x /usr/local/bin/claude
+ENV CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
+
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

@@ -59,7 +59,7 @@ run_entrypoint() {
         "$ORIGINAL_ENTRYPOINT" > "/tmp/test-entrypoint-$$.sh"
     chmod +x "/tmp/test-entrypoint-$$.sh"
     # Clear HOST_PWD and HOST_USER to ensure clean test environment
-    run env -u HOST_PWD -u HOST_USER "/tmp/test-entrypoint-$$.sh" "$@"
+    run env -u HOST_PWD -u HOST_USER -u BRANCH_BEACON_REPO -u CLAUDE_CODE_PLUGIN_DIRS "/tmp/test-entrypoint-$$.sh" "$@"
 }
 
 # Run the entrypoint script with specific environment variables
@@ -80,9 +80,9 @@ run_entrypoint_with_env() {
     
     # Run with specified environment, clearing HOST_PWD and HOST_USER first
     if [[ ${#env_vars[@]} -gt 0 ]]; then
-        run env -u HOST_PWD -u HOST_USER "${env_vars[@]}" "/tmp/test-entrypoint-$$.sh" "$@"
+        run env -u HOST_PWD -u HOST_USER -u BRANCH_BEACON_REPO -u CLAUDE_CODE_PLUGIN_DIRS "${env_vars[@]}" "/tmp/test-entrypoint-$$.sh" "$@"
     else
-        run env -u HOST_PWD -u HOST_USER "/tmp/test-entrypoint-$$.sh" "$@"
+        run env -u HOST_PWD -u HOST_USER -u BRANCH_BEACON_REPO -u CLAUDE_CODE_PLUGIN_DIRS "/tmp/test-entrypoint-$$.sh" "$@"
     fi
 }
 
