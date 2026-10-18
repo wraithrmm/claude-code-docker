@@ -1,0 +1,22 @@
+# Store LF in the repo and check out LF on every OS so scripts run in the Linux
+# container even when the working tree is shared with a Windows host. The eol=lf
+# attribute overrides a Windows core.autocrlf=true and rewrites the working tree on
+# checkout, which core.autocrlf=input alone does not do.
+* text=auto eol=lf
+
+# Scripts must always be LF so their shebang and lines execute under bash.
+*.sh    text eol=lf
+*.bash  text eol=lf
+.claude/bin/*        text eol=lf
+assets/.claude/bin/* text eol=lf
+assets/entrypoint.sh text eol=lf
+bin/*                text eol=lf
+
+# Keep real binaries binary so they are never line-ending mangled.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
