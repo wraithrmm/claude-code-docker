@@ -49,6 +49,27 @@ load test_helper
     assert_success
 }
 
+@test "1.5: transcript upload paths stay closed" {
+    run node -e "
+        const settings = JSON.parse(require('fs').readFileSync('$BATS_TEST_DIRNAME/../assets/.claude/settings.json', 'utf8'));
+        const env = settings.env || {};
+        const missing = ['DISABLE_FEEDBACK_COMMAND', 'CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY', 'DISABLE_ERROR_REPORTING'].filter(name => env[name] !== '1');
+        if (settings.feedbackSurveyRate !== 0) missing.push('feedbackSurveyRate: 0');
+        if (missing.length) { console.log('Not set:', missing.join(', ')); process.exit(1); }
+    "
+    assert_success
+}
+
+@test "1.6: feature-flag fetching is not disabled, so artifact comments work" {
+    run node -e "
+        const settings = JSON.parse(require('fs').readFileSync('$BATS_TEST_DIRNAME/../assets/.claude/settings.json', 'utf8'));
+        const env = settings.env || {};
+        const blockers = ['DISABLE_TELEMETRY', 'DO_NOT_TRACK', 'DISABLE_GROWTHBOOK', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'].filter(name => name in env);
+        if (blockers.length) { console.log('Disables feature flags:', blockers.join(', ')); process.exit(1); }
+    "
+    assert_success
+}
+
 # Test 2: Deny pattern validation - positive matches (should be denied)
 
 @test "2.1: blocks exact .env files" {
