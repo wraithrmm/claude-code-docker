@@ -9,6 +9,8 @@
 #   --no-docker-sock     Don't mount Docker socket
 #   --no-pull            Skip pulling the latest image before running
 #   --oauth-port PORT    Host port for MCP OAuth callbacks (default: 3334)
+#   --run "COMMAND"      Run COMMAND detached instead of an interactive shell
+#   --name NAME          Container name (with --run, default: claude-code-run-<folder>)
 #   --dry-run            Print the docker command without executing
 #   --help               Show this help message
 #
@@ -132,6 +134,13 @@ Options:
   --no-docker-sock     Don't mount the Docker socket into the container
   --no-pull            Skip pulling the latest image before running
   --oauth-port PORT    Host port for MCP OAuth callbacks (default: 3334)
+  --run "COMMAND"      Run COMMAND in the background instead of an interactive
+                       shell: detached, and restarted by Docker if it exits or
+                       Docker restarts, until you `docker stop` it. No OAuth
+                       port is published unless --oauth-port is given, so it
+                       never blocks an interactive container's port.
+  --name NAME          Container name (with --run, default:
+                       claude-code-run-<current folder name>)
   --dry-run            Print the docker command without executing
   --help               Show this help message
 
@@ -147,6 +156,8 @@ Examples:
   run-claude-code --host-network         # Run with host networking
   run-claude-code --oauth-port 4444      # Use alternate port for MCP OAuth
   run-claude-code --dry-run              # Show command without running
+  run-claude-code --run "my-loop --every 5m"   # Run a command in the background
+  docker logs -f claude-code-run-myproject      # ...and follow its output
 
 EOF
 }
@@ -158,6 +169,9 @@ parse_args() {
     SKIP_PULL=false
     DRY_RUN=false
     OAUTH_PORT=3334
+    OAUTH_PORT_GIVEN=false
+    RUN_COMMAND=""
+    CONTAINER_NAME=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -183,6 +197,23 @@ parse_args() {
                     exit 1
                 fi
                 OAUTH_PORT="$2"
+                OAUTH_PORT_GIVEN=true
+                shift 2
+                ;;
+            --run)
+                if [[ -z "$2" ]]; then
+                    echo "Error: --run requires a command."
+                    exit 1
+                fi
+                RUN_COMMAND="$2"
+                shift 2
+                ;;
+            --name)
+                if ! [[ "$2" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]]; then
+                    echo "Error: --name requires a container name (letters, digits, '_', '.', '-')."
+                    exit 1
+                fi
+                CONTAINER_NAME="$2"
                 shift 2
                 ;;
             --dry-run)
@@ -222,17 +253,36 @@ pull_image() {
     fi
 }
 
+# Default container name for --run: one per project folder, so a second --run
+# from the same folder fails on the name instead of starting a duplicate.
+default_run_name() {
+    local folder
+    folder="$(basename "$(pwd)" | tr -c 'a-zA-Z0-9_.\n-' '-')"
+    echo "claude-code-run-${folder}"
+}
+
 # Build and run the docker command
 run_container() {
-    local cmd="docker run -it --rm"
+    local cmd
+    if [[ -n "$RUN_COMMAND" ]]; then
+        CONTAINER_NAME="${CONTAINER_NAME:-$(default_run_name)}"
+        cmd="docker run -d --restart unless-stopped"
+    else
+        cmd="docker run -it --rm"
+    fi
+    if [[ -n "$CONTAINER_NAME" ]]; then
+        cmd+=" --name $CONTAINER_NAME"
+    fi
 
     # Networking
     if [[ "$USE_HOST_NETWORK" == "true" ]]; then
         cmd+=" --network host"
     fi
 
-    # MCP OAuth callback port
-    cmd+=" -p ${OAUTH_PORT}:3334"
+    # MCP OAuth callback port: a background container only takes it when asked
+    if [[ -z "$RUN_COMMAND" || "$OAUTH_PORT_GIVEN" == "true" ]]; then
+        cmd+=" -p ${OAUTH_PORT}:3334"
+    fi
 
     # Volume mounts
     cmd+=" -v \"$(pwd)\":/workspace/project"
@@ -254,7 +304,11 @@ run_container() {
 
     # Image and entrypoint
     cmd+=" $IMAGE"
-    cmd+=" /bin/bash"
+    if [[ -n "$RUN_COMMAND" ]]; then
+        cmd+=" /bin/bash -c $(printf '%q' "$RUN_COMMAND")"
+    else
+        cmd+=" /bin/bash"
+    fi
 
     if [[ "$DRY_RUN" == "true" ]]; then
         if [[ "$SKIP_PULL" == "true" ]]; then
@@ -267,6 +321,12 @@ run_container() {
         echo ""
         echo "$cmd"
         echo ""
+    elif [[ -n "$RUN_COMMAND" ]]; then
+        echo "Starting Claude Code container $CONTAINER_NAME in the background..."
+        eval "$cmd"
+        echo ""
+        echo "  Follow it:  docker logs -f $CONTAINER_NAME"
+        echo "  Stop it:    docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME"
     else
         echo "Starting Claude Code container..."
         echo ""

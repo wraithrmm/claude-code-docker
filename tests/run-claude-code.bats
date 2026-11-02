@@ -114,3 +114,40 @@ MOCK
     assert_output_contains "--no-pull"
     assert_output_contains "Skip pulling the latest image"
 }
+
+@test "run-claude-code: --run starts the command detached, restarted unless stopped" {
+    run "$TEST_SCRIPT" --no-pull --dry-run --run "my-loop --every 5m"
+
+    assert_success
+    assert_output_contains "docker run -d --restart unless-stopped --name claude-code-run-"
+    assert_output_contains '/bin/bash -c my-loop\ --every\ 5m'
+    refute_output_contains "-it --rm"
+}
+
+@test "run-claude-code: --run publishes no OAuth port unless --oauth-port is given" {
+    run "$TEST_SCRIPT" --no-pull --dry-run --run "my-loop"
+    assert_success
+    refute_output_contains ":3334"
+
+    run "$TEST_SCRIPT" --no-pull --dry-run --run "my-loop" --oauth-port 4444
+    assert_success
+    assert_output_contains "-p 4444:3334"
+}
+
+@test "run-claude-code: --name names the container, and a bad name is refused" {
+    run "$TEST_SCRIPT" --no-pull --dry-run --run "my-loop" --name agent-loop
+    assert_success
+    assert_output_contains "--name agent-loop "
+
+    run "$TEST_SCRIPT" --no-pull --dry-run --name "bad name"
+    assert_failure
+    assert_output_contains "--name requires a container name"
+}
+
+@test "run-claude-code: without --run the container stays interactive with the OAuth port" {
+    run "$TEST_SCRIPT" --no-pull --dry-run
+
+    assert_success
+    assert_output_contains "docker run -it --rm -p 3334:3334"
+    assert_output_contains "wraithrmm/claude-code-docker:latest /bin/bash"
+}
