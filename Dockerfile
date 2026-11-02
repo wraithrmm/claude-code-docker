@@ -137,16 +137,21 @@ RUN npm install -g \
 #   picomatch affected locations: npm/tinyglobby/picomatch, markdownlint-cli/tinyglobby/picomatch
 #   No upstream fix yet: npm <=11.12.1 and markdownlint-cli 0.48.0 both bundle picomatch 4.0.3
 # CVE-2026-19534: undici <6.28.1 (DoS via unrequested WebSocket subprotocol)
-#   npm bundles undici transitively via node-gyp ("undici": "^6.25.0"); 6.28.1 is the
+# CVE-2026-109383, CVE-2026-109869, CVE-2026-87018: undici <6.29.1 (TLS certificate
+#   validation bypass, DoS via excessive content-encodings, DoS via TLS renegotiation)
+#   npm bundles undici transitively via node-gyp ("undici": "^6.25.0"); 6.29.1 is the
 #   fixed release on the 6.x line and stays within node-gyp's ^6 constraint.
 # CVE-2026-59873, CVE-2026-59874, CVE-2026-73566: tar <7.5.21 (DoS via crafted archives)
 # CVE-2026-102276, CVE-2026-102278, CVE-2026-14257, CVE-2026-69152: brace-expansion <5.0.12 (DoS)
 # CVE-2026-69192: ip-address <10.3.1 (SSRF via inconsistent IP address parsing)
+# CVE-2026-116795: re2js <2.8.7 (DoS via repeated lookbehind matching)
+#   markdownlint-cli 0.50.0 -> markdownlint 0.42.0 pins re2js at exactly 2.8.6. A global
+#   package ignores overrides, so its copy is replaced with 2.8.8 (newest 2.8.x).
 RUN set -e && \
     NPM_NM=/usr/lib/node_modules/npm/node_modules && \
     mkdir -p /tmp/npm-patches && cd /tmp/npm-patches && \
     npm init -y --silent && \
-    npm install minimatch@10.2.3 tar@7.5.21 picomatch@4.0.4 undici@6.28.1 brace-expansion@5.0.12 ip-address@10.3.1 --install-strategy=nested --silent && \
+    npm install minimatch@10.2.3 tar@7.5.21 picomatch@4.0.4 undici@6.29.1 brace-expansion@5.0.12 ip-address@10.3.1 re2js@2.8.8 --install-strategy=nested --silent && \
     rm -rf "$NPM_NM/minimatch" "$NPM_NM/tar" "$NPM_NM/undici" "$NPM_NM/brace-expansion" "$NPM_NM/ip-address" && \
     cp -r node_modules/minimatch "$NPM_NM/minimatch" && \
     cp -r node_modules/tar "$NPM_NM/tar" && \
@@ -155,13 +160,16 @@ RUN set -e && \
     cp -r node_modules/ip-address "$NPM_NM/ip-address" && \
     find /usr/lib/node_modules -name picomatch -type d \
       -exec sh -c 'v=$(node -p "require(\"$1/package.json\").version"); [ "$v" = "4.0.3" ] && rm -rf "$1" && cp -r node_modules/picomatch "$1" && echo "Patched $1: $v -> 4.0.4"' _ {} \; && \
+    find /usr/lib/node_modules -name re2js -type d -path '*/node_modules/re2js' \
+      -exec sh -c 'v=$(node -p "require(\"$1/package.json\").version"); case "$v" in 2.8.[0-6]) rm -rf "$1" && cp -r node_modules/re2js "$1" && echo "Patched $1: $v -> 2.8.8" ;; esac' _ {} \; && \
     cd / && rm -rf /tmp/npm-patches && \
     npm --version && \
     node -e "console.log('minimatch: ' + require('$NPM_NM/minimatch/package.json').version)" && \
     node -e "console.log('tar: ' + require('$NPM_NM/tar/package.json').version)" && \
     node -e "console.log('undici: ' + require('$NPM_NM/undici/package.json').version)" && \
     node -e "console.log('brace-expansion: ' + require('$NPM_NM/brace-expansion/package.json').version)" && \
-    node -e "console.log('ip-address: ' + require('$NPM_NM/ip-address/package.json').version)"
+    node -e "console.log('ip-address: ' + require('$NPM_NM/ip-address/package.json').version)" && \
+    markdownlint --version
 
 # Configure git for shared Windows + Linux checkouts.
 # When the same working tree is used from a Windows host and this Linux container,

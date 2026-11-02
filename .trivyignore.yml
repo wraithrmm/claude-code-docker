@@ -18,6 +18,11 @@ vulnerabilities:
   # sigstore timestamp-authority vulnerability - affects tflint
   - id: CVE-2025-66564
     statement: Cannot patch compiled Go binary, awaiting upstream release with fixed sigstore lib
+  # go-jose JWK RSA-parameter DoS (GHSA-mgcc-cww5-fp2q) - affects tflint
+  # tflint v0.65.0 pins go-jose/v4 4.1.4 (indirect, via sigstore plugin verification);
+  # master already bumps it to 4.1.6 (terraform-linters/tflint#2686), not yet released.
+  - id: CVE-2026-116587
+    statement: Cannot patch compiled Go binary, awaiting a tflint release with go-jose/v4 4.1.6+ (merged in tflint#2686). Needs untrusted RSA JWKs; local Terraform linting does not parse them.
 
   # glob CLI command injection - FALSE POSITIVE for npm
   # npm uses glob as a library, not CLI. The vulnerable -c/--cmd code path is never executed.
