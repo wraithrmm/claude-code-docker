@@ -22,8 +22,29 @@ That's it! The script will:
 | `--host-network` | Use host networking instead of bridge (default) |
 | `--no-docker-sock` | Don't mount Docker socket into container |
 | `--no-pull` | Skip pulling the latest image before running |
+| `--oauth-port PORT` | Host port for MCP OAuth callbacks (default: 3334) |
+| `--run "COMMAND"` | Run COMMAND in the background instead of an interactive shell (see below) |
+| `--name NAME` | Container name (with `--run`, default: `claude-code-run-<current folder name>`) |
 | `--dry-run` | Print the docker command without executing |
 | `--help` | Show help message |
+
+## Running a command in the background
+
+`--run` starts the container once and leaves it running COMMAND, so slow container start-up is
+paid only once. The container is detached (`docker run -d`) and Docker restarts it if COMMAND
+exits or Docker itself restarts, until you stop it. It gets the same mounts and environment as an
+interactive container, and publishes no OAuth port unless you pass `--oauth-port`, so it never
+holds the port an interactive container needs.
+
+```bash
+cd /path/to/your/project
+./bin/run-claude-code --run "my-loop --every 5m"   # container claude-code-run-<folder>
+docker logs -f claude-code-run-myproject           # follow its output
+docker stop claude-code-run-myproject && docker rm claude-code-run-myproject
+```
+
+A second `--run` from the same folder fails on the container name rather than starting a
+duplicate. Use `--name` to run several from one folder.
 
 ## Examples
 
